@@ -20,6 +20,8 @@ jobs:
           java-version: '21'
           cache: maven
           cache-dependency-path: backend/pom.xml
+      - name: Syntax-check Windows Python agent
+        run: python -m py_compile agent/windows/guardian_agent.py
       - name: Java tests and package
         working-directory: backend
         run: mvn -B -ntp verify

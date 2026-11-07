@@ -1,6 +1,6 @@
 # Guardian — Implementación y estado actual
 
-> Rama de implementación: `feat/bootstrap-guardian-20261107`. Ningún módulo está desplegado. El agente Windows/macOS/Linux y la inferencia facial siguen pendientes. No afirmar que el equipo está protegido antes de verificar agente y bloqueo real.
+> Rama de implementación: `feat/bootstrap-guardian-20261107`. Ningún módulo está desplegado. El agente Windows existe como prototipo de evaluación basado en Python/OpenCV sin pruebas en hardware, sin liveness y sin instalador; macOS/Linux siguen pendientes. No afirmar que el equipo está protegido antes de verificar agente y bloqueo real.
 
 ## Autenticación y parametrización
 

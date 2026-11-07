@@ -49,6 +49,19 @@ public class AgentController {
     public record EventRequest(@NotBlank String type, @NotBlank String reason) {}
     public record ChallengeRequest(@NotNull UUID deviceId) {}
 
+    @GetMapping("/{deviceId}/policy")
+    public Map<String,Object> policy(@PathVariable UUID deviceId,
+        @RequestHeader(value="X-Guardian-Agent-Key", required=false) String key) {
+        authorized(deviceId,key);
+        return jdbc.queryForObject("""
+            SELECT lock_on_away, away_timeout_seconds, allow_remote_approval
+            FROM protected_device WHERE id = ? AND revoked_at IS NULL
+            """, (rs, i) -> Map.<String,Object>of(
+                "lockOnAway",rs.getBoolean("lock_on_away"),
+                "awayTimeoutSeconds",rs.getInt("away_timeout_seconds"),
+                "allowRemoteApproval",rs.getBoolean("allow_remote_approval")), deviceId);
+    }
+
     @PostMapping("/{deviceId}/activate")
     public Map<String,Object> activate(@PathVariable UUID deviceId,
         @RequestHeader(value="X-Guardian-Agent-Key", required=false) String key) {

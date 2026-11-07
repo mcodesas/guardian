@@ -2,7 +2,7 @@
 
 **Guardian** es una plataforma multiplataforma de seguridad para propietarios de dispositivos. La aplicación integra identidad, autorizaciones móviles, inventario de computadores, alertas y políticas de seguridad, con reconocimiento facial y bloqueo local planificados para el agente nativo.
 
-> **Estado:** versión inicial de desarrollo. Las APIs de identidad/dispositivos/aprobaciones y la interfaz Flutter están implementadas en la rama de desarrollo. **Aún no hay agente de reconocimiento facial ni bloqueo automático funcional.** No usar como sustituto de las protecciones del sistema operativo.
+> **Estado:** versión inicial de desarrollo. Las APIs de identidad/dispositivos/aprobaciones y la interfaz Flutter están implementadas en la rama de desarrollo. **Se incluye un prototipo evaluativo Windows del agente facial y bloqueo; aún no está validado, integrado ni listo para producción.** No usar como sustituto de las protecciones del sistema operativo.
 
 ## Diseño del producto
 
@@ -11,7 +11,7 @@
 - **Cliente:** Flutter para Windows, macOS, Linux, Android e iOS (fuentes compartidas, corredores nativos generados con Flutter SDK).
 - **Aprobación móvil:** huella/Face ID local, firma Ed25519 vinculada al celular, duración de 5/15/30 minutos y vencimiento.
 - **Notificaciones:** bandeja visual centralizada, correo opcional y FCM optativo configurado por el propietario.
-- **Proximidad y bloqueo:** política de ausencia y autorización modeladas; ejecución pendiente en agente nativo.
+- **Proximidad y bloqueo:** primer prototipo Python Windows de cámara, bloqueo Win32 y aprobación remota; requiere modelos ONNX externos y pruebas en equipos reales.
 
 ## Primer arranque local (backend)
 
@@ -46,7 +46,7 @@ flutter test
 flutter run -d windows --dart-define=GUARDIAN_API_URL=https://TU_DOMINIO_SEGURO
 ```
 
-Guía completa: [Flutter](apps/guardian_flutter/README.md).
+Guía completa: [Flutter](apps/guardian_flutter/README.md). Prototipo de agente: [Windows](agent/windows/README.md).
 
 ## Documentación
 
