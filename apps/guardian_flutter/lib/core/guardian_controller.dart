@@ -63,6 +63,16 @@ class GuardianController extends ChangeNotifier {
   Future<void> verify(String email, String code) async {
     await api.post('/auth/verify',{'email':email,'code':code});
   }
+  Future<void> resend(String email) async {
+    await api.post('/auth/resend-verification',{'email':email});
+  }
+  Future<void> requestReset(String email) async {
+    await api.post('/auth/request-reset',{'email':email});
+  }
+  Future<void> resetPassword(String email,String code,String password) async {
+    await api.post('/auth/reset',{'email':email,'code':code,'newPassword':password});
+  }
+
   Future<void> login(String email, String password) async {
     working = true; error = null; notifyListeners();
     try {

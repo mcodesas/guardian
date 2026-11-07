@@ -114,35 +114,6 @@ public class AuthService {
     }
 
     @Transactional
-    public void verify(String emailRaw, String code) {
-        String email = normalizedEmail(emailRaw);
-        List<Map<String,Object>> found = jdbc.queryForList("""
-            SELECT id, verification_code_hash, verification_expires_at,
-                   verification_attempts, email_verified
-            FROM guardian_account WHERE email = ? FOR UPDATE
-            """, email);
-        if (found.isEmpty()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Código inválido o vencido");
-        Map<String,Object> row = found.get(0);
-        if (Boolean.TRUE.equals(row.get("email_verified"))) return;
-        Instant expiry = row.get("verification_expires_at") == null
-            ? Instant.EPOCH : ((java.sql.Timestamp) row.get("verification_expires_at")).toInstant();
-        int attempts = ((Number) row.get("verification_attempts")).intValue();
-        UUID accountId = (UUID) row.get("id");
-        if (attempts >= 5 || !Instant.now().isBefore(expiry)
-            || row.get("verification_code_hash") == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Código inválido o vencido");
-        }
-        if (!passwordEncoder.matches(code + pepper, (String) row.get("verification_code_hash"))) {
-            jdbc.update("UPDATE guardian_account SET verification_attempts = verification_attempts + 1 WHERE id = ?", accountId);
-            return; // The controller signals an error outside the transaction to preserve attempt tracking.
-        }
-        jdbc.update("""
-            UPDATE guardian_account SET email_verified = true, verification_code_hash = NULL,
-                verification_expires_at = NULL, verification_attempts = 0 WHERE id = ?
-            """, accountId);
-    }
-
-    @Transactional
     public boolean verifyCode(String email, String code) {
         // Using a boolean prevents marking a failed attempt as rolled back by an exception.
         String normalized = normalizedEmail(email);
@@ -166,6 +137,100 @@ public class AuthService {
             UPDATE guardian_account SET email_verified = true, verification_code_hash = NULL,
                 verification_expires_at = NULL, verification_attempts = 0 WHERE id = ?
             """, accountId);
+        return true;
+    }
+
+    private void sendResetCode(String email,String code) {
+        if (sender == null || mailFrom.isBlank())
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "Correo SMTP no configurado");
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(mailFrom);
+        message.setTo(email);
+        message.setSubject("Guardian | Recuperar acceso");
+        message.setText("Código para recuperar la cuenta Guardian: " + code +
+            "\nVence en 10 minutos. No compartas este código.");
+        try { sender.send(message); }
+        catch(RuntimeException ex) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "No se pudo enviar el mensaje de recuperación",ex);
+        }
+    }
+
+    @Transactional
+    public void resendVerification(String emailRaw) {
+        String email=normalizedEmail(emailRaw);
+        List<Map<String,Object>> matches=jdbc.queryForList("""
+            SELECT id, email_verified, verification_sent_at
+            FROM guardian_account WHERE email = ? FOR UPDATE
+            """,email);
+        if(matches.isEmpty() || Boolean.TRUE.equals(matches.get(0).get("email_verified"))) return;
+        Map<String,Object> item=matches.get(0);
+        if(item.get("verification_sent_at")!=null &&
+            Instant.now().isBefore(((java.sql.Timestamp)item.get("verification_sent_at"))
+                .toInstant().plus(60,ChronoUnit.SECONDS))) return;
+        String code=newCode();
+        jdbc.update("""
+            UPDATE guardian_account
+            SET verification_code_hash = ?, verification_expires_at = ?,
+                verification_sent_at = now(), verification_attempts = 0
+            WHERE id = ?
+            """,passwordEncoder.encode(code+pepper),
+            Instant.now().plus(10,ChronoUnit.MINUTES),(UUID)item.get("id"));
+        sendCode(email,code);
+    }
+
+    @Transactional
+    public void requestPasswordReset(String emailRaw) {
+        String email=normalizedEmail(emailRaw);
+        List<Map<String,Object>> matches=jdbc.queryForList("""
+            SELECT id, reset_code_sent_at FROM guardian_account
+            WHERE email = ? AND email_verified = true FOR UPDATE
+            """,email);
+        if(matches.isEmpty()) return; // Do not disclose account existence.
+        Map<String,Object> item=matches.get(0);
+        if(item.get("reset_code_sent_at")!=null &&
+            Instant.now().isBefore(((java.sql.Timestamp)item.get("reset_code_sent_at"))
+                .toInstant().plus(60,ChronoUnit.SECONDS))) return;
+        String code=newCode();
+        jdbc.update("""
+            UPDATE guardian_account SET reset_code_hash = ?,
+                reset_code_expires_at = ?, reset_code_attempts = 0,
+                reset_code_sent_at = now() WHERE id = ?
+            """,passwordEncoder.encode(code+pepper),
+            Instant.now().plus(10,ChronoUnit.MINUTES),(UUID)item.get("id"));
+        sendResetCode(email,code);
+    }
+
+    @Transactional
+    public boolean resetPassword(String emailRaw,String code,String newPassword) {
+        if(newPassword.length()<12 || newPassword.length()>128)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Contraseña de entre 12 y 128 caracteres requerida");
+        String email=normalizedEmail(emailRaw);
+        List<Map<String,Object>> matches=jdbc.queryForList("""
+            SELECT id, reset_code_hash, reset_code_expires_at, reset_code_attempts
+            FROM guardian_account WHERE email = ? AND email_verified = true FOR UPDATE
+            """,email);
+        if(matches.isEmpty()) return false;
+        Map<String,Object> item=matches.get(0);
+        if(item.get("reset_code_hash")==null || item.get("reset_code_expires_at")==null
+            || ((Number)item.get("reset_code_attempts")).intValue()>=5) return false;
+        if(!Instant.now().isBefore(((java.sql.Timestamp)item.get("reset_code_expires_at")).toInstant()))
+            return false;
+        UUID id=(UUID)item.get("id");
+        if(!passwordEncoder.matches(code+pepper,(String)item.get("reset_code_hash"))) {
+            jdbc.update("UPDATE guardian_account SET reset_code_attempts = reset_code_attempts + 1 WHERE id = ?",id);
+            return false;
+        }
+        jdbc.update("""
+            UPDATE guardian_account SET password_hash = ?,
+                reset_code_hash = NULL, reset_code_expires_at = NULL,
+                reset_code_sent_at = NULL, reset_code_attempts = 0,
+                failed_login_attempts = 0, locked_until = NULL
+            WHERE id = ?
+            """,passwordEncoder.encode(newPassword),id);
+        jdbc.update("UPDATE auth_session SET revoked_at = now() WHERE guardian_account_id = ? AND revoked_at IS NULL",id);
         return true;
     }
 

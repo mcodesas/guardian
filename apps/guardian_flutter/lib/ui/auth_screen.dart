@@ -90,6 +90,57 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  Future<void> recoverPassword() async {
+    final resetEmail=TextEditingController(text:email.text.trim());
+    final resetCode=TextEditingController();
+    final newPassword=TextEditingController();
+    var sent=false;
+    final result=await showDialog<bool>(context:context,
+      builder:(ctx)=>StatefulBuilder(builder:(ctx,refresh)=>AlertDialog(
+      backgroundColor:GuardianPalette.surface,
+      title:const Text('Recupera tu acceso'),
+      content:ConstrainedBox(constraints:const BoxConstraints(maxWidth:410),
+        child:SingleChildScrollView(child:Column(mainAxisSize:MainAxisSize.min,children:[
+          const Text('Solicita un código temporal al correo de tu cuenta.',
+            style:TextStyle(color:GuardianPalette.muted)),
+          const SizedBox(height:15),
+          TextField(controller:resetEmail,keyboardType:TextInputType.emailAddress,
+            decoration:const InputDecoration(labelText:'Correo electrónico')),
+          if(sent)...[
+            const SizedBox(height:12),
+            TextField(controller:resetCode,keyboardType:TextInputType.number,
+              maxLength:6,decoration:const InputDecoration(
+                labelText:'Código de seis dígitos',counterText:'')),
+            const SizedBox(height:12),
+            TextField(controller:newPassword,obscureText:true,
+              decoration:const InputDecoration(
+                labelText:'Nueva contraseña (mínimo 12 caracteres)')),
+          ],
+        ]))),
+      actions:[
+        TextButton(onPressed:()=>Navigator.pop(ctx,false),
+          child:const Text('Cancelar')),
+        ElevatedButton(onPressed:()async{
+          try {
+            if(!sent) {
+              await widget.controller.requestReset(resetEmail.text.trim());
+              refresh(()=>sent=true);
+            } else {
+              await widget.controller.resetPassword(resetEmail.text.trim(),
+                resetCode.text.trim(),newPassword.text);
+              if(ctx.mounted) Navigator.pop(ctx,true);
+            }
+          } catch(e) {
+            if(ctx.mounted) guardianMessage(ctx,e.toString());
+          }
+        },child:Text(sent?'Cambiar contraseña':'Enviar código')),
+      ],
+    )));
+    resetEmail.dispose(); resetCode.dispose(); newPassword.dispose();
+    if(result==true && mounted)
+      guardianMessage(context,'Contraseña actualizada. Inicia sesión de nuevo.');
+  }
+
   String? validateEmail(String? input) {
     if(!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(input?.trim() ?? '')) {
       return 'Introduce un correo válido';
@@ -168,6 +219,21 @@ class _AuthScreenState extends State<AuthScreen> {
               label:Text(mode==AuthMode.login?'Iniciar sesión'
                 :mode==AuthMode.register?'Crear cuenta':'Verificar correo'))),
           ])),
+          const SizedBox(height:14),
+          if(mode==AuthMode.login)
+            Align(alignment:Alignment.centerRight,
+              child:TextButton(onPressed:recoverPassword,
+                child:const Text('¿Olvidaste tu contraseña?'))),
+          if(mode==AuthMode.verify)
+            Align(alignment:Alignment.centerRight,
+              child:TextButton(onPressed:()async{
+                try {
+                  await widget.controller.resend(email.text.trim());
+                  if(mounted) guardianMessage(context,'Si es posible, se envió un nuevo código.');
+                } catch(e) {
+                  if(mounted) guardianMessage(context,e.toString());
+                }
+              },child:const Text('Reenviar código'))),
           const SizedBox(height:18),
           Row(mainAxisAlignment:MainAxisAlignment.center,children:[
             Text(mode==AuthMode.login?'¿No tienes cuenta?':'¿Ya tienes cuenta?',

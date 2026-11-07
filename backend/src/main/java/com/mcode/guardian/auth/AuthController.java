@@ -25,6 +25,10 @@ public class AuthController {
                                @NotBlank String password,
                                @Size(max=120) String clientLabel) {}
     public record RefreshRequest(@NotBlank String refreshToken) {}
+    public record EmailRequest(@NotBlank @Email String email) {}
+    public record ResetPasswordRequest(@NotBlank @Email String email,
+                                       @NotBlank String code,
+                                       @NotBlank @Size(min=12,max=128) String newPassword) {}
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
@@ -38,6 +42,25 @@ public class AuthController {
         if (!auth.verifyCode(request.email, request.code))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Código inválido o vencido");
         return Map.of("message","Cuenta verificada");
+    }
+
+    @PostMapping("/resend-verification")
+    public Map<String,String> resend(@Valid @RequestBody EmailRequest request) {
+        auth.resendVerification(request.email());
+        return Map.of("message","Si la cuenta lo permite, se enviará un nuevo código");
+    }
+
+    @PostMapping("/request-reset")
+    public Map<String,String> requestReset(@Valid @RequestBody EmailRequest request) {
+        auth.requestPasswordReset(request.email());
+        return Map.of("message","Si el correo está registrado, llegará un código de recuperación");
+    }
+
+    @PostMapping("/reset")
+    public Map<String,String> reset(@Valid @RequestBody ResetPasswordRequest request) {
+        if (!auth.resetPassword(request.email(), request.code(), request.newPassword()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Código inválido o vencido");
+        return Map.of("message","Contraseña actualizada; vuelve a iniciar sesión");
     }
 
     @PostMapping("/login")
