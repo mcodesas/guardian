@@ -15,6 +15,7 @@ class GuardianShell extends StatefulWidget {
 class _GuardianShellState extends State<GuardianShell> {
   int tab=0;
   bool incidents=false, busy=false;
+  int alertFilter=0;
   static const titles=['Resumen','Solicitudes','Dispositivos','Alertas','Mi cuenta'];
   static const icons=[
     Icons.dashboard_outlined,Icons.verified_user_outlined,Icons.devices_outlined,
@@ -470,6 +471,21 @@ class _GuardianShellState extends State<GuardianShell> {
       widget.controller.revokeDevice(d['id'] as String));
   }
 
+  List<Map<String,dynamic>> get _filteredNotifications {
+    final items=widget.controller.notifications;
+    if(alertFilter==1) {
+      return items.where((it)=>it['type']=='INTRUSION').toList();
+    }
+    if(alertFilter==2) {
+      return items.where((it)=>it['type']=='APPROVAL_REQUIRED').toList();
+    }
+    if(alertFilter==3) {
+      return items.where((it)=>it['type']!='APPROVAL_REQUIRED' &&
+        it['type']!='INTRUSION').toList();
+    }
+    return items;
+  }
+
   Widget _notifications()=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     const Text('Avisos, solicitudes e incidentes de tus dispositivos.',
       style:TextStyle(color:GuardianPalette.muted)),
@@ -480,12 +496,26 @@ class _GuardianShellState extends State<GuardianShell> {
       ChoiceChip(label:const Text('Incidentes'),selected:incidents,
         onSelected:(_)=>setState(()=>incidents=true)),
     ]),
-    const SizedBox(height:18),
-    if(!incidents && widget.controller.notifications.isEmpty)
-      const GuardianEmpty(title:'No hay notificaciones',
-        description:'Tus alertas aparecerán aquí y permanecerán disponibles para consulta.',
+    const SizedBox(height:16),
+    if(!incidents) ...[
+      const Text('FILTRAR POR TIPO',style:TextStyle(
+        color:GuardianPalette.muted,fontSize:10,letterSpacing:1.5)),
+      const SizedBox(height:9),
+      Wrap(spacing:8,runSpacing:8,children:[
+        for(final entry in <(String,int)>[
+            ('Todas',0),('Críticas',1),('Solicitudes',2),('Estado de equipos',3)
+          ])
+          ChoiceChip(label:Text(entry.$1),selected:alertFilter==entry.$2,
+            onSelected:(_)=>setState(()=>alertFilter=entry.$2)),
+      ]),
+      const SizedBox(height:18),
+    ],
+    if(!incidents && _filteredNotifications.isEmpty)
+      const GuardianEmpty(title:'No hay avisos en esta categoría',
+        description:'Cuando Guardian registre una alerta, aparecerá aquí. '
+          'También puedes seleccionar el filtro Todas.',
         icon:Icons.notifications_none_outlined),
-    if(!incidents)...widget.controller.notifications.map((n)=>Padding(
+    if(!incidents)..._filteredNotifications.map((n)=>Padding(
       padding:const EdgeInsets.only(bottom:12),child:_notificationCard(n))),
     if(incidents && widget.controller.incidents.isEmpty)
       const GuardianEmpty(title:'Sin incidentes',
@@ -512,7 +542,9 @@ class _GuardianShellState extends State<GuardianShell> {
     final request=n['type']=='APPROVAL_REQUIRED';
     final color=critical?GuardianPalette.red:
       request?GuardianPalette.amber:GuardianPalette.blue;
-    return GlassCard(child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    return GestureDetector(
+      onTap:()=>_notificationDetail(n),
+      child:GlassCard(child:Row(crossAxisAlignment:CrossAxisAlignment.start,children:[
       Container(width:45,height:45,decoration:BoxDecoration(
         color:color.withValues(alpha:.12),borderRadius:BorderRadius.circular(15)),
         child:Icon(critical?Icons.gpp_bad_outlined:
@@ -538,7 +570,89 @@ class _GuardianShellState extends State<GuardianShell> {
         onPressed:busy?null:()=>action(()=>
           widget.controller.markRead(n['id'] as String)),
         icon:const Icon(Icons.done_all,color:GuardianPalette.teal,size:20)),
-    ]));
+    ])));
+  }
+
+  Future<void> _notificationDetail(Map<String,dynamic> notice) async {
+    final critical=notice['type']=='INTRUSION';
+    final requested=notice['type']=='APPROVAL_REQUIRED';
+    final color=critical?GuardianPalette.red:
+      requested?GuardianPalette.amber:GuardianPalette.blue;
+    final title=(notice['title']??'Notificación').toString();
+    final body=(notice['body']??'').toString();
+    await showModalBottomSheet<void>(
+      context:context,backgroundColor:GuardianPalette.surface,
+      showDragHandle:true,isScrollControlled:true,
+      builder:(sheet)=>SafeArea(child:Padding(
+        padding:EdgeInsets.fromLTRB(22,10,22,
+          24+MediaQuery.viewInsetsOf(sheet).bottom),
+        child:ConstrainedBox(constraints:const BoxConstraints(maxHeight:510),
+          child:SingleChildScrollView(child:Column(
+            mainAxisSize:MainAxisSize.min,
+            crossAxisAlignment:CrossAxisAlignment.start,children:[
+              Row(children:[
+                Container(width:54,height:54,
+                  decoration:BoxDecoration(color:color.withValues(alpha:.12),
+                    borderRadius:BorderRadius.circular(18)),
+                  child:Icon(critical?Icons.shield_outlined:
+                    requested?Icons.phonelink_lock_rounded:
+                    Icons.notifications_active_outlined,
+                    size:29,color:color)),
+                const SizedBox(width:14),
+                Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,
+                  children:[
+                    Text(title,style:Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height:4),
+                    Text(friendlyTime(notice['createdAt']),
+                      style:const TextStyle(color:GuardianPalette.muted)),
+                  ])),
+              ]),
+              const SizedBox(height:19),
+              StatusTag(critical?'SEGURIDAD CRÍTICA':
+                requested?'SOLICITUD DE ACCESO':'INFORMACIÓN DEL EQUIPO',
+                color,icon:critical?Icons.warning_amber:
+                  requested?Icons.verified_user_outlined:Icons.info_outline),
+              const SizedBox(height:19),
+              GlassCard(child:Text(body,style:const TextStyle(
+                height:1.6,color:GuardianPalette.white,fontSize:14))),
+              const SizedBox(height:16),
+              Text(critical
+                ?'Comprueba el incidente antes de tomar decisiones. '
+                  'No compartas contraseñas ni códigos por correo.'
+                :requested
+                  ?'Una aprobación exige un teléfono previamente vinculado '
+                    'y autenticación biométrica.'
+                  :'Puedes revisar el estado y las políticas del dispositivo.',
+                style:const TextStyle(
+                  color:GuardianPalette.muted,fontSize:12,height:1.5)),
+              const SizedBox(height:24),
+              SizedBox(width:double.infinity,child:ElevatedButton.icon(
+                onPressed:(){
+                  Navigator.pop(sheet);
+                  if(requested)navigate(1);
+                  else if(!critical)navigate(2);
+                },
+                icon:Icon(requested?Icons.verified_user_outlined:
+                  critical?Icons.check_circle_outline:Icons.devices_outlined),
+                label:Text(requested?'Revisar y responder':
+                  critical?'Entendido':'Ver dispositivos'),
+              )),
+              if(notice['read']==false)...[
+                const SizedBox(height:10),
+                SizedBox(width:double.infinity,
+                  child:OutlinedButton.icon(
+                    onPressed:(){
+                      Navigator.pop(sheet);
+                      action(()=>widget.controller.markRead(notice['id'] as String));
+                    },
+                    icon:const Icon(Icons.done_all),
+                    label:const Text('Marcar como leída')),
+                ),
+              ],
+            ])),
+        )),
+      )),
+    );
   }
 
   Future<void> _enrollPhone() async {

@@ -311,7 +311,15 @@ def monitor(args: argparse.Namespace) -> None:
     recognizer = Recognition(args.detector, args.recognizer)
     api = AgentApi(config)
     api.activate()
-    camera = open_camera(config.get("cameraIndex", 0))
+    try:
+        camera = open_camera(config.get("cameraIndex", 0))
+    except RuntimeError as error:
+        emit_event(api, "CAMERA_UNAVAILABLE",
+                   "La cámara no pudo iniciar: " + str(error))
+        if args.mode == "protect":
+            request_lock_and_report(api, "CAMERA_UNAVAILABLE",
+                                    "Cámara no disponible durante arranque")
+        raise
     policy = {"lockOnAway": True, "awayTimeoutSeconds": 15,
               "allowRemoteApproval": True}
     last_policy = 0.0
