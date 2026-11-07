@@ -22,6 +22,8 @@ jobs:
           cache-dependency-path: backend/pom.xml
       - name: Syntax-check Windows Python agent
         run: python -m py_compile agent/windows/guardian_agent.py
+      - name: Windows policy unit tests (no camera required)
+        run: python -m unittest discover -s agent/windows -p 'test_*.py'
       - name: Java tests and package
         working-directory: backend
         run: mvn -B -ntp verify

@@ -28,6 +28,10 @@ import cv2
 import numpy as np
 import requests
 import win32crypt
+from guardian_policy import (
+    is_valid_trust_window, should_flag_unknown, should_lock_on_away,
+    should_request_remote_approval,
+)
 
 LOG = logging.getLogger("guardian")
 DATA_DIR = Path(os.environ.get("APPDATA", ".")) / "Guardian" / "agent"
@@ -353,7 +357,7 @@ def monitor(args: argparse.Namespace) -> None:
             feature = recognizer.face_feature(frame) if ok else None
             idle = seconds_idle()
             timeout = int(policy.get("awayTimeoutSeconds", 15))
-            trusted = now < trust_until
+            trusted = is_valid_trust_window(until=trust_until, now=now)
 
             # Even during temporary approval, an explicitly unknown FACE
             # must still be evaluated; otherwise anyone could exploit the
@@ -368,7 +372,8 @@ def monitor(args: argparse.Namespace) -> None:
                 else:
                     unknown_streak += 1
                     state = "Rostro diferente al propietario (sin prueba de vida)"
-                    if unknown_streak >= 8 and now > locked_cooldown and idle < 20:
+                    if should_flag_unknown(consecutive=unknown_streak, idle_seconds=idle,
+                                           now=now, cooldown_until=locked_cooldown):
                         trust_until = 0.0
                         if args.mode == "protect":
                             request_lock_and_report(api, "UNKNOWN_PERSON",
@@ -385,7 +390,10 @@ def monitor(args: argparse.Namespace) -> None:
                 if missing_since is None:
                     missing_since = now
                 if now - missing_since >= timeout and now > locked_cooldown:
-                    if idle >= timeout and bool(policy.get("lockOnAway", True)):
+                    if should_lock_on_away(absence_seconds=now-missing_since,
+                            idle_seconds=idle, timeout_seconds=timeout,
+                            enabled=bool(policy.get("lockOnAway", True)),
+                            now=now, cooldown_until=locked_cooldown):
                         # The owner may be away even if a previous mobile
                         # approval was granted. Never suppress away-lock.
                         trust_until = 0.0
@@ -396,7 +404,10 @@ def monitor(args: argparse.Namespace) -> None:
                             emit_event(api, "OWNER_ABSENT",
                                 "Ausencia persistente; modo observación")
                         locked_cooldown = now + 90
-                    elif idle < timeout and not trusted:
+                    elif should_request_remote_approval(absence_seconds=now-missing_since,
+                            idle_seconds=idle, timeout_seconds=timeout,
+                            trust_until=trust_until, now=now,
+                            cooldown_until=locked_cooldown):
                         # Fail safe: a person operating an unverifiable
                         # session must not get 45 seconds of free access
                         # while the phone authorization is pending.
