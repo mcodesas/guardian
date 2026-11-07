@@ -13,6 +13,8 @@ import jakarta.annotation.PostConstruct;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Base64;
@@ -39,16 +41,19 @@ public class PushService {
     private final JdbcTemplate jdbc;
     private final AuthService auth;
     private final String accountPath;
+    private final String serviceAccountBase64;
     private final byte[] encryptionKey;
     private FirebaseApp app;
     private final SecureRandom random = new SecureRandom();
 
     public PushService(JdbcTemplate jdbc, AuthService auth,
         @Value("${GUARDIAN_FIREBASE_SERVICE_ACCOUNT_PATH:}") String accountPath,
+        @Value("${GUARDIAN_FIREBASE_SERVICE_ACCOUNT_JSON_BASE64:}") String accountBase64,
         @Value("${GUARDIAN_PUSH_ENCRYPTION_KEY_BASE64:}") String encryptionKey) {
         this.jdbc=jdbc;
         this.auth=auth;
         this.accountPath=accountPath;
+        this.serviceAccountBase64=accountBase64;
         if (!encryptionKey.isEmpty()) {
             byte[] decoded = Base64.getDecoder().decode(encryptionKey);
             if(decoded.length != 32) throw new IllegalStateException(
@@ -61,10 +66,12 @@ public class PushService {
 
     @PostConstruct
     public void init() {
-        if (accountPath.isBlank()) return;
+        if (accountPath.isBlank() && serviceAccountBase64.isBlank()) return;
         if (encryptionKey==null) throw new IllegalStateException(
             "Configure the push encryption key before enabling Firebase");
-        try (FileInputStream stream=new FileInputStream(accountPath)) {
+        try (InputStream stream=accountPath.isBlank()
+            ? new ByteArrayInputStream(Base64.getDecoder().decode(serviceAccountBase64))
+            : new FileInputStream(accountPath)) {
             app=FirebaseApp.initializeApp(FirebaseOptions.builder()
                 .setCredentials(GoogleCredentials.fromStream(stream))
                 .build(),"guardian-fcm");
@@ -147,7 +154,7 @@ public class PushService {
                     .setToken(token)
                     .setNotification(Notification.builder()
                         .setTitle(delivery.title())
-                        .setBody(delivery.body())
+                        .setBody("Se registró actividad que requiere tu atención. Abre Guardian para revisar los detalles.")
                         .build())
                     .setAndroidConfig(AndroidConfig.builder().setPriority(
                         AndroidConfig.Priority.HIGH).build())

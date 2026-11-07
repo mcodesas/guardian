@@ -52,6 +52,7 @@ class PushBridge {
       try { await api.post('/push/unregister',{'token':token}); }
       catch (_) { /* Offline sign-out still clears local account credentials. */ }
     }
+    if(ready) { try { await FirebaseMessaging.instance.deleteToken(); } catch (_) {} }
     await _rotations?.cancel();
     await _foreground?.cancel();
     await _opened?.cancel();

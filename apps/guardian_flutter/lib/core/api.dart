@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -81,23 +80,22 @@ class GuardianApi {
   }
 
   Future<void> _refreshAccess() async {
-    if (_refreshing != null) {
-      await _refreshing;
-      return;
-    }
-    final completer = Completer<void>();
-    _refreshing = completer.future;
+    final existing=_refreshing;
+    if(existing!=null) { await existing; return; }
+    final task=_doRefresh();
+    _refreshing=task;
+    try { await task; }
+    finally { _refreshing=null; }
+  }
+
+  Future<void> _doRefresh() async {
     try {
-      final response = await _dio.post<dynamic>('$serverUrl/api/v1/auth/refresh',
+      final response=await _dio.post<dynamic>('$serverUrl/api/v1/auth/refresh',
         data:{'refreshToken':refreshToken});
       await saveTokens(Map<String,dynamic>.from(response.data as Map));
-      completer.complete();
-    } catch (e) {
+    } catch(e) {
       await clearTokens();
-      completer.completeError(e);
       rethrow;
-    } finally {
-      _refreshing = null;
     }
   }
 }

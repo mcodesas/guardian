@@ -88,3 +88,7 @@ Tema oscuro original de Guardian: fondo azul grafito, turquesa luminoso, azul pa
 En CI, solo `push` a `main` o lanzamiento manual ejecuta Maven y Flutter analyze/test. No hay Actions en PR. El backend actual tiene pruebas unitarias de política temporal, firma Ed25519 y normalización de cuentas; es obligatorio ampliar a tests de integración reales con PostgreSQL, SMTP, Firebase y hardware antes de producción.
 
 No se hizo merge ni despliegue en este trabajo.
+
+### Docker y Firebase
+
+En Docker se puede configurar `GUARDIAN_FIREBASE_SERVICE_ACCOUNT_JSON_BASE64` con el JSON de la cuenta de servicio codificado en Base64, guardado únicamente en `.env` y nunca en Git. Como alternativa, usa un fichero montado en el contenedor y `GUARDIAN_FIREBASE_SERVICE_ACCOUNT_PATH`. Las notificaciones externas se envían con texto genérico para evitar mostrar detalles sensibles en la pantalla bloqueada.
