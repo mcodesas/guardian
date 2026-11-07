@@ -651,7 +651,7 @@ class _GuardianShellState extends State<GuardianShell> {
               ],
             ])),
         )),
-      )),
+      ),
     );
   }
 
