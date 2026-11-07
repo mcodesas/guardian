@@ -285,7 +285,7 @@ class _GuardianShellState extends State<GuardianShell> {
               trailing:const Icon(Icons.chevron_right),
               onTap:()=>Navigator.pop(ctx,value)),
           ]),
-        )))
+        ))
       );
       if(selected==null) return;
       minutes=selected;

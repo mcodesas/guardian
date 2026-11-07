@@ -261,7 +261,7 @@ class _AuthScreenState extends State<AuthScreen> {
           const Text('Guardian by MCode · Privacidad por diseño',
             style:TextStyle(color:GuardianPalette.muted,fontSize:11)),
         ])))),
-      )),
+      ),
     ])));
   }
 
