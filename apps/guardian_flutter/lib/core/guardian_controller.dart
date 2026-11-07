@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:guardian_app/core/api.dart';
+import 'package:guardian_app/core/push_bridge.dart';
 
 class GuardianController extends ChangeNotifier {
   final GuardianApi api = GuardianApi();
+  final PushBridge push = PushBridge();
   bool initialized = false;
   bool working = false;
   String? error;
@@ -41,6 +43,7 @@ class GuardianController extends ChangeNotifier {
       profile = Map<String,dynamic>.from(await api.get('/auth/me') as Map);
       await reload();
       startPolling();
+      await push.start(api,reload);
     } catch (e) {
       profile = null;
       if (e is ApiFailure && e.status == 401) await api.clearTokens();
@@ -79,6 +82,7 @@ class GuardianController extends ChangeNotifier {
 
   Future<void> logout() async {
     _poll?.cancel();
+    await push.stop(api);
     try { await api.post('/auth/logout'); } catch (_) { /* Local sign-out works offline. */ }
     await api.clearTokens();
     profile = null;
@@ -131,5 +135,5 @@ class GuardianController extends ChangeNotifier {
   Future<void> markRead(String id) async {
     await api.post('/notifications/$id/read'); await reload();
   }
-  @override void dispose() { _poll?.cancel(); super.dispose(); }
+  @override void dispose() { _poll?.cancel(); push.dispose(); super.dispose(); }
 }
