@@ -586,7 +586,7 @@ class _GuardianShellState extends State<GuardianShell> {
                 const SizedBox(height:8),
                 const Text('Después solicitaremos huella o Face ID.',
                   style:TextStyle(color:GuardianPalette.amber,fontSize:12)),
-              ]))),
+              ])),
             ),
             actions:[
               TextButton(onPressed:()=>Navigator.pop(ctx),
