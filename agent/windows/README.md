@@ -20,7 +20,11 @@ python -m pip install -r requirements.txt
 
 python guardian_agent.py setup
 python guardian_agent.py enroll --detector C:\modelos\yunet.onnx --recognizer C:\modelos\sface.onnx
-python guardian_agent.py monitor --detector C:\modelos\yunet.onnx --recognizer C:\modelos\sface.onnx
+# Observación segura (predeterminado, sin bloquear)
+python guardian_agent.py monitor --detector C:\modelos\yunet.onnx --recognizer C:\modelos\sface.onnx --mode observe
+
+# ÚNICAMENTE en un equipo de pruebas, tras validar recuperación y falsa detección
+python guardian_agent.py monitor --detector C:\modelos\yunet.onnx --recognizer C:\modelos\sface.onnx --mode protect
 ```
 
 En monitor aparece una ventana visible con estado y vídeo. La tecla `Q` detiene el prototipo. Ninguna instalación oculta ni capturas ocultas.
@@ -43,3 +47,13 @@ En monitor aparece una ventana visible con estado y vídeo. La tecla `Q` detiene
 - Una cámara movida, tapada o sin permisos produce `NOT_VERIFIABLE`, nunca identidad del intruso confirmada.
 - Si el proceso termina, no sigue protegiendo. Requiere instalador firmado y supervisión por sesión para una versión final.
 - La imagen puede contener terceros; informar y obtener consentimiento conforme a la ley aplicable.
+
+## Protecciones adicionales del prototipo
+
+- Modo predeterminado `observe`: informa y muestra el estado, pero **no bloquea**.
+- Modo `protect` experimental: solicita bloqueo con la API Win32; debe activarse explícitamente, sólo en un equipo de pruebas.
+- Una solicitud móvil ahora se genera **después de solicitar el bloqueo**, por lo que la ventana de 45 segundos no deja abierta la sesión.
+- Las autorizaciones temporales solo omiten la solicitud de verificación cuando el rostro está ausente; un rostro inequívocamente distinto sigue evaluándose y la ausencia con inactividad sigue provocando bloqueo.
+- Las fotografías se guardan cifradas con DPAPI y se purgan al superar siete días o 100 archivos.
+- Una cámara que deja de producir fotogramas genera un evento y, en modo experimental de protección, solicita bloqueo.
+- Liveness sigue pendiente. Una foto o video que supere la comparación facial podría engañar al modelo: esto no es biometría certificada.

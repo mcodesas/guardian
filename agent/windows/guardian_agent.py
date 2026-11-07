@@ -166,6 +166,16 @@ def evidence(frame: np.ndarray) -> str:
     filename = datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + secrets.token_hex(4) + ".enc"
     # Encrypted to current Windows user with DPAPI. No plaintext JPEG on disk.
     (EVIDENCE_DIR / filename).write_bytes(protect(jpeg.tobytes()))
+    # Keep only the latest 100 images and a maximum seven-day retention.
+    # Never create plaintext JPEG files.
+    all_evidence = sorted(EVIDENCE_DIR.glob("*.enc"), key=lambda p: p.stat().st_mtime,
+                          reverse=True)
+    for index, item in enumerate(all_evidence):
+        try:
+            if index >= 100 or time.time() - item.stat().st_mtime > 7 * 24 * 3600:
+                item.unlink()
+        except OSError:
+            LOG.warning("No se pudo aplicar la retención a una evidencia")
     return filename
 
 
@@ -304,63 +314,107 @@ def monitor(args: argparse.Namespace) -> None:
     last_flush = 0.0
     missing_since: float | None = None
     unknown_streak = 0
+    failed_frames = 0
+    camera_failure_reported = False
     trust_until = 0.0
     locked_cooldown = 0.0
-    LOG.info("Guardian en monitorización visible. Q cierra el agente.")
+    LOG.warning("Guardian modo %s. La cámara y el estado de protección están visibles.",
+                args.mode)
+    if args.mode == "protect":
+        LOG.warning("Modo experimental: sin detección de presencia real anti-suplantación.")
+
     try:
         while True:
             now = time.time()
             if now - last_policy > 60:
                 try:
                     policy = api.policy()
-                    last_policy = now
                 except requests.RequestException:
-                    LOG.warning("Sin conexión: se utiliza la última política conocida")
+                    LOG.warning("Sin conexión: continúa la última política")
+                finally:
+                    last_policy = now
             if now - last_flush > 30:
                 flush_outbox(api)
                 last_flush = now
+
             ok, frame = camera.read()
+            failed_frames = 0 if ok else failed_frames + 1
+            if failed_frames >= 10 and not camera_failure_reported:
+                emit_event(api, "CAMERA_UNAVAILABLE",
+                           "La cámara dejó de entregar imágenes; verifica conexión o permisos")
+                camera_failure_reported = True
+                if args.mode == "protect" and now > locked_cooldown:
+                    request_lock_and_report(api, "CAMERA_UNAVAILABLE",
+                                            "La cámara no está disponible")
+                    locked_cooldown = now + 90
+            if ok:
+                camera_failure_reported = False
+
             feature = recognizer.face_feature(frame) if ok else None
             idle = seconds_idle()
-            if now < trust_until:
-                state = "Autorizado temporalmente desde el teléfono"
+            timeout = int(policy.get("awayTimeoutSeconds", 15))
+            trusted = now < trust_until
+
+            # Even during temporary approval, an explicitly unknown FACE
+            # must still be evaluated; otherwise anyone could exploit the
+            # approved 5/15/30 minute window. Approval only suppresses
+            # prompts when the face cannot be verified.
+            if feature is not None:
                 missing_since = None
-            elif feature is not None:
-                matches = [recognizer.similarity(feature, sample) for sample in embeddings]
-                if matches and max(matches) >= float(args.threshold):
+                scores = [recognizer.similarity(feature, sample) for sample in embeddings]
+                if scores and max(scores) >= float(args.threshold):
                     state = "Propietario reconocido"
-                    missing_since = None
                     unknown_streak = 0
                 else:
-                    state = "Rostro desconocido (clasificación probabilística)"
                     unknown_streak += 1
-                    if unknown_streak >= 5 and now > locked_cooldown and idle < 20:
-                        request_lock_and_report(api, "UNKNOWN_PERSON",
-                            "Rostro diferente al registrado; revisar posible intrusión",
-                            frame)
+                    state = "Rostro diferente al propietario (sin prueba de vida)"
+                    if unknown_streak >= 8 and now > locked_cooldown and idle < 20:
+                        trust_until = 0.0
+                        if args.mode == "protect":
+                            request_lock_and_report(api, "UNKNOWN_PERSON",
+                                "Rostro diferente observado repetidamente; revisar incidente",
+                                frame)
+                        else:
+                            emit_event(api, "UNKNOWN_PERSON",
+                                "Rostro diferente observado; modo observación")
                         locked_cooldown = now + 90
                         unknown_streak = 0
             else:
                 unknown_streak = 0
-                state = "No es posible verificar el rostro"
+                state = "Identidad no verificable (no implica intrusión)"
                 if missing_since is None:
                     missing_since = now
-                timeout = int(policy.get("awayTimeoutSeconds", 15))
                 if now - missing_since >= timeout and now > locked_cooldown:
                     if idle >= timeout and bool(policy.get("lockOnAway", True)):
-                        request_lock_and_report(api, "OWNER_ABSENT",
-                            "Ausencia prolongada; se solicitó bloqueo preventivo")
-                        locked_cooldown = now + 90
-                    elif idle < timeout and policy.get("allowRemoteApproval", True):
-                        until = approval(api)
-                        if until:
-                            trust_until = until
-                            state = "Autorizado desde teléfono"
+                        # The owner may be away even if a previous mobile
+                        # approval was granted. Never suppress away-lock.
+                        trust_until = 0.0
+                        if args.mode == "protect":
+                            request_lock_and_report(api, "OWNER_ABSENT",
+                                "Ausencia persistente; bloqueo solicitado")
                         else:
-                            request_lock_and_report(api, "NOT_VERIFIABLE",
-                                "Actividad sin rostro verificable; no hubo aprobación")
+                            emit_event(api, "OWNER_ABSENT",
+                                "Ausencia persistente; modo observación")
                         locked_cooldown = now + 90
-                    missing_since = now
+                    elif idle < timeout and not trusted:
+                        # Fail safe: a person operating an unverifiable
+                        # session must not get 45 seconds of free access
+                        # while the phone authorization is pending.
+                        if args.mode == "protect":
+                            request_lock_and_report(api, "NOT_VERIFIABLE",
+                                "Actividad sin rostro verificable; requiere autorización")
+                        else:
+                            emit_event(api, "NOT_VERIFIABLE",
+                                "Actividad sin rostro verificable; modo observación")
+                        if policy.get("allowRemoteApproval", True):
+                            until = approval(api)
+                            if until:
+                                trust_until = until
+                                state = "Autorización móvil válida, desbloqueo manual"
+                            else:
+                                state = "Sin aprobación; conserva bloqueo local"
+                        locked_cooldown = time.time() + 90
+                    missing_since = time.time()
             if ok:
                 display = frame.copy()
                 cv2.rectangle(display, (0, 0), (display.shape[1], 52), (15, 25, 33), -1)
@@ -406,6 +460,8 @@ def main() -> int:
         p.add_argument("--recognizer", required=True, help="Ruta de modelo SFace ONNX")
         if name == "monitor":
             p.add_argument("--threshold", type=float, default=0.42)
+            p.add_argument("--mode", choices=("observe", "protect"), default="observe",
+                           help="observe: no bloquea; protect: solicita bloqueos Windows")
     p_evidence = actions.add_parser("view-evidence")
     p_evidence.add_argument("filename")
     args = parser.parse_args()
