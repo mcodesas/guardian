@@ -106,3 +106,38 @@ solicitudes a una por minuto y ocho por hora. La API relevante es
 y de la seguridad de la sesión; para un producto comercial se requieren MFA más fuerte,
 revisión de dispositivos vinculados, atestación móvil y firma no exportable por hardware.
 El teléfono debe inscribirse antes de solicitar aprobaciones que caducan en 45 segundos.
+
+
+## Seguridad reforzada — actualizaciones de noviembre de 2026
+
+- Registrar una credencial móvil exige código OTP enviado al correo validado,
+  vinculado a la sesión solicitante y de un solo uso (migración `V4`).
+- El token de Firebase solo puede registrarse tras demostrar posesión de la
+  clave Ed25519 del teléfono previamente vinculado (firma de
+  `guardian:push:v1:CREDENTIAL_ID:FCM_TOKEN`).
+- Revocar una clave móvil también revoca sus tokens push.
+- El agente Windows tiene modo `observe` por defecto y `protect` opcional
+  solamente para evaluación controlada. En protect solicita el bloqueo **antes**
+  de esperar una respuesta del celular cuando hay actividad no verificable.
+- La autorización temporal no desactiva la detección de otros rostros ni el
+  bloqueo preventivo por ausencia. Se han separado y probado cuatro reglas
+  unitarias puras de seguridad.
+- La aplicación móvil presenta filtros de alertas (todas, críticas, solicitudes
+  y estado de equipos), además de un detalle adaptativo de la notificación.
+- `AuthenticationRateLimitFilter` reduce intentos de abuso SMTP/credenciales
+  por IP en una sola instancia. Para despliegues distribuidos se necesita
+  limitación también en proxy o almacén compartido.
+
+### Validación ejecutada
+
+- Comparación de cambios y verificación de archivos en GitHub.
+- Revisión estática de balance de delimitadores en Java y Dart editados.
+- Cuatro pruebas de decisiones puras de Guardian Policy ejecutadas en
+  Python 3 (satisfactorias).
+- Tests adicionales de presentación Flutter y rate limiting Java publicados
+  para ejecutar con SDK/Maven en CI.
+
+**Pendiente de validación real**: `mvn verify`, `flutter analyze`,
+`flutter test`, Android/iOS con Firebase, integración PostgreSQL/SMTP,
+Windows con cámara física/ONNX y verificación del bloqueo real.
+La rama no se ha fusionado.
