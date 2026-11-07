@@ -25,16 +25,24 @@ public class ApprovalController {
     private final JdbcTemplate jdbc;
     private final ApprovalSignature verifier;
     private final NotificationService notifications;
+    private final MobileEnrollmentService enrollment;
 
     public ApprovalController(JdbcTemplate jdbc, ApprovalSignature verifier,
-                              NotificationService notifications) {
+                              NotificationService notifications, MobileEnrollmentService enrollment) {
         this.jdbc = jdbc;
         this.verifier = verifier;
         this.notifications = notifications;
+        this.enrollment = enrollment;
     }
 
     public record CredentialRequest(@NotBlank String publicKey, @NotBlank String platform,
-                                    @NotBlank String label) {}
+                                    @NotBlank String verificationCode) {}
+
+    @PostMapping("/mobile/credentials/challenge")
+    public Map<String,String> sendEnrollmentCode(@AuthenticationPrincipal AuthPrincipal principal) {
+        enrollment.sendEnrollmentCode(principal);
+        return Map.of("message","Se envió un código al correo verificado de tu cuenta");
+    }
     public record DecisionRequest(@NotNull UUID credentialId, @NotBlank String decision,
                                   @NotNull Integer trustMinutes, @NotBlank String signature) {}
 
@@ -48,6 +56,9 @@ public class ApprovalController {
             if (Base64.getDecoder().decode(body.publicKey()).length != 32) throw new Exception();
         } catch (Exception ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Clave pública Ed25519 inválida");
+        }
+        if (!enrollment.consumeCode(principal, body.verificationCode())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Código inválido o vencido");
         }
         UUID id = UUID.randomUUID();
         jdbc.update("""
