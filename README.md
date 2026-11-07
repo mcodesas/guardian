@@ -1,45 +1,59 @@
 # Guardian by MCode
 
-**Guardian** es un proyecto de seguridad multiplataforma para ayudar al propietario a proteger sus dispositivos mediante presencia, reconocimiento facial local, bloqueo de sesión, incidentes y aprobación remota desde Android o iOS.
+**Guardian** es una plataforma multiplataforma de seguridad para propietarios de dispositivos. La aplicación integra identidad, autorizaciones móviles, inventario de computadores, alertas y políticas de seguridad, con reconocimiento facial y bloqueo local planificados para el agente nativo.
 
-> **Estado: prototipo de arquitectura y backend base. No protege ningún dispositivo todavía.** No uses esta versión para sustituir el bloqueo del sistema operativo ni la autenticación multifactor.
+> **Estado:** versión inicial de desarrollo. Las APIs de identidad/dispositivos/aprobaciones y la interfaz Flutter están implementadas en la rama de desarrollo. **Aún no hay agente de reconocimiento facial ni bloqueo automático funcional.** No usar como sustituto de las protecciones del sistema operativo.
 
-## Componentes
+## Diseño del producto
 
-- `apps/mobile/`: cliente Flutter Android/iOS para alertas y aprobación remota (pendiente de implementación).
-- `apps/desktop/`: panel Flutter Windows/macOS/Linux (pendiente de implementación).
-- `agent/`: agente nativo de seguridad para el bloqueo local, sensores y reconocimiento (pendiente).
-- `backend/`: Spring Boot 3.5 + Java 21, acceso inicial restringido y esquema PostgreSQL.
-- `docs/`: arquitectura, restricciones por plataforma, amenazas y plan de implementación.
+- **Autenticación:** una cuenta por propietario, verificación por email, contraseña BCrypt, tokens revocables con rotación y recuperación por código.
+- **Backend:** Java 21, Spring Boot 3.5.7, PostgreSQL 17, Flyway, correo SMTP y Firebase Cloud Messaging opcional.
+- **Cliente:** Flutter para Windows, macOS, Linux, Android e iOS (fuentes compartidas, corredores nativos generados con Flutter SDK).
+- **Aprobación móvil:** huella/Face ID local, firma Ed25519 vinculada al celular, duración de 5/15/30 minutos y vencimiento.
+- **Notificaciones:** bandeja visual centralizada, correo opcional y FCM optativo configurado por el propietario.
+- **Proximidad y bloqueo:** política de ausencia y autorización modeladas; ejecución pendiente en agente nativo.
 
-## Arranque del backend (desarrollo)
+## Primer arranque local (backend)
 
-Requisitos: Docker con Compose. Desde la raíz:
+Instala Docker + Compose. Copia el ejemplo de entorno:
 
 ```bash
 cp .env.example .env
-# Cambia GUARDIAN_DB_PASSWORD en .env antes de levantar el entorno
-docker compose up --build -d
-docker compose ps
+```
+
+Reemplaza:
+- `GUARDIAN_DB_PASSWORD`: contraseña aleatoria distinta a desarrollo.
+- `GUARDIAN_AUTH_PEPPER`: secreto aleatorio de mínimo 32 caracteres, estable en el servidor.
+- `GUARDIAN_SMTP_HOST`, `GUARDIAN_SMTP_USERNAME`, `GUARDIAN_SMTP_PASSWORD`, `GUARDIAN_MAIL_FROM`: SMTP para verificación y recuperación.
+- Opcional: Firebase service account con acceso únicamente al backend y clave AES 256 bits para tokens FCM.
+
+```bash
+docker compose up -d --build
 curl http://localhost:8080/actuator/health
 ```
 
-El servicio expone inicialmente solo el endpoint de salud. El resto de las rutas HTTP devuelve acceso denegado deliberadamente hasta implementar autenticación fuerte, vinculación de dispositivos y autorización.
+La API se publica únicamente en localhost; usa proxy inverso HTTPS y controles de firewall para acceso remoto. No subir `.env`.
 
-## Documentos de diseño
+## Cliente Flutter
 
+En `apps/guardian_flutter`:
+
+```bash
+flutter create --project-name guardian_app --org com.mcode.guardian --platforms=android,ios,windows,macos,linux .
+flutter pub get
+flutter analyze
+flutter test
+flutter run -d windows --dart-define=GUARDIAN_API_URL=https://TU_DOMINIO_SEGURO
+```
+
+Guía completa: [Flutter](apps/guardian_flutter/README.md).
+
+## Documentación
+
+- [Implementación y APIs](docs/IMPLEMENTATION.md)
 - [Arquitectura](docs/ARCHITECTURE.md)
-- [Modelo de seguridad](docs/SECURITY.md)
+- [Seguridad](docs/SECURITY.md)
 - [Restricciones por plataforma](docs/PLATFORMS.md)
-- [Hoja de ruta](docs/ROADMAP.md)
+- [Plan de fases](docs/ROADMAP.md)
 
-## Principios de seguridad
-
-- Reconocimiento facial **local**, sin subir plantillas biométricas al servidor.
-- Si no se ve el rostro, el estado es **no verificable**, no un intruso confirmado.
-- Los sistemas operativos siguen siendo la autoridad para el bloqueo y el desbloqueo.
-- La aprobación móvil debe comprobar biometría local, una credencial criptográfica vinculada al dispositivo y un desafío efímero de un solo uso.
-- Nunca enviar contraseñas ni credenciales por correo; no rotar contraseñas automáticamente por fallos de cámara.
-- No activar cámaras de manera oculta ni prometer vigilancia permanente donde el sistema operativo la impida.
-
-Proyecto de MCode SAS. Uso restringido al propietario o administradores con autorización y consentimiento.
+**Organización:** MCode SAS. **Rama de implementación:** `feat/bootstrap-guardian-20261107`.
