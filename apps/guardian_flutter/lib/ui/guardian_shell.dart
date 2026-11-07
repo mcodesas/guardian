@@ -541,6 +541,73 @@ class _GuardianShellState extends State<GuardianShell> {
     ]));
   }
 
+  Future<void> _enrollPhone() async {
+    await action(() async {
+      final accountId=(widget.controller.profile?['id']??'').toString();
+      final approval=MobileApprovals(widget.controller.api,accountId);
+      if(!approval.supported) {
+        throw StateError('La vinculación debe realizarse en Android o iOS.');
+      }
+      if(await approval.isEnrolled()) {
+        if(mounted) guardianMessage(context,'Este teléfono ya está vinculado.');
+        return;
+      }
+      await approval.sendEnrollmentCode();
+      if(!mounted) return;
+
+      final codeController=TextEditingController();
+      String? code;
+      try {
+        code=await showDialog<String>(context:context,
+          builder:(ctx)=>AlertDialog(
+            backgroundColor:GuardianPalette.surface,
+            title:const Text('Vincula tu teléfono'),
+            content:ConstrainedBox(
+              constraints:const BoxConstraints(maxWidth:380),
+              child:SingleChildScrollView(child:Column(
+                mainAxisSize:MainAxisSize.min,
+                crossAxisAlignment:CrossAxisAlignment.start,children:[
+                const Icon(Icons.mark_email_read_outlined,
+                  color:GuardianPalette.teal,size:40),
+                const SizedBox(height:15),
+                const Text('Enviamos un código al correo verificado '
+                  'de tu cuenta Guardian. Solo podrás aprobar accesos '
+                  'después de completar esta vinculación.',
+                  style:TextStyle(color:GuardianPalette.muted,height:1.5)),
+                const SizedBox(height:17),
+                TextField(controller:codeController,
+                  autofocus:true,
+                  keyboardType:TextInputType.number,
+                  maxLength:6,
+                  decoration:const InputDecoration(
+                    labelText:'Código de seis dígitos',
+                    prefixIcon:Icon(Icons.pin_outlined),
+                    counterText:'')),
+                const SizedBox(height:8),
+                const Text('Después solicitaremos huella o Face ID.',
+                  style:TextStyle(color:GuardianPalette.amber,fontSize:12)),
+              ]))),
+            ),
+            actions:[
+              TextButton(onPressed:()=>Navigator.pop(ctx),
+                child:const Text('Cancelar')),
+              ElevatedButton(
+                onPressed:()=>Navigator.pop(ctx,codeController.text.trim()),
+                child:const Text('Vincular')),
+            ],
+          ));
+      } finally {
+        // Closing the dialog completes its route, after which its controller
+        // is no longer needed.
+        codeController.dispose();
+      }
+      if(code==null) return;
+      await approval.enroll(code);
+      if(mounted) guardianMessage(context,
+        'Teléfono vinculado. Ahora puedes aprobar accesos con biometría.');
+    });
+  }
+
   Widget _profile()=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
     GlassCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       const Row(children:[
@@ -566,6 +633,24 @@ class _GuardianShellState extends State<GuardianShell> {
         widget.controller.push.ready?GuardianPalette.teal:GuardianPalette.amber,
         icon:Icons.notifications_outlined),
       const SizedBox(height:19),
+      if(Platform.isAndroid || Platform.isIOS) ...[
+        FutureBuilder<bool>(
+          future:MobileApprovals(widget.controller.api,
+              (widget.controller.profile?['id']??'').toString()).isEnrolled(),
+          builder:(context,snapshot)=>Column(
+            crossAxisAlignment:CrossAxisAlignment.start,children:[
+              StatusTag(snapshot.data==true?'MÓVIL VINCULADO':'PENDIENTE DE VINCULACIÓN',
+                snapshot.data==true?GuardianPalette.teal:GuardianPalette.amber,
+                icon:Icons.fingerprint_outlined),
+              const SizedBox(height:12),
+              OutlinedButton.icon(onPressed:busy?null:_enrollPhone,
+                icon:const Icon(Icons.phonelink_lock_outlined),
+                label:Text(snapshot.data==true?
+                  'Consultar vinculación':'Vincular este teléfono')),
+              const SizedBox(height:18),
+            ]),
+        ),
+      ],
       OutlinedButton.icon(onPressed:busy?null:()=>action(widget.controller.logout),
         icon:const Icon(Icons.logout_outlined,color:GuardianPalette.red),
         label:const Text('Cerrar sesión')),

@@ -4,9 +4,9 @@ import 'package:cryptography/cryptography.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:guardian_app/core/api.dart';
 
-/// The software key is protected with OS encrypted storage, but is not
-/// guaranteed to be hardware-backed. Native non-exportable keys are the
-/// production hardening step for high-assurance approvals.
+/// The prototype stores an Ed25519 software key in OS encrypted storage.
+/// Production high-assurance approvals must instead use hardware-backed,
+/// non-exportable keys with biometric authorization bound to SIGNING.
 class MobileApprovals {
   final GuardianApi api;
   final String accountId;
@@ -18,66 +18,106 @@ class MobileApprovals {
   String get _seedKey => 'guardian.mobile.$accountId.seed';
   String get _credentialKey => 'guardian.mobile.$accountId.credential';
 
+  bool get supported => Platform.isAndroid || Platform.isIOS;
+
+  Future<bool> isEnrolled() async {
+    if (!supported) return false;
+    return await GuardianApi.storage.read(key:_seedKey)!=null &&
+           await GuardianApi.storage.read(key:_credentialKey)!=null;
+  }
+
   Future<void> _authenticate() async {
-    if (!(Platform.isAndroid || Platform.isIOS)) {
-      throw StateError('Aprobaciones disponibles únicamente en Android o iOS.');
+    if (!supported) {
+      throw StateError('Solo Android o iOS pueden aprobar accesos.');
     }
     if (!await biometrics.canCheckBiometrics) {
-      throw StateError('Configura huella o Face ID en tu teléfono.');
+      throw StateError('Configura Face ID o huella en tu celular.');
     }
     final ok = await biometrics.authenticate(
-      localizedReason: 'Confirma tu identidad para responder a Guardian',
-      biometricOnly: true,
-      sensitiveTransaction: true,
-      persistAcrossBackgrounding: true,
+      localizedReason:'Guardian necesita tu huella o Face ID para esta operación',
+      biometricOnly:true,
+      sensitiveTransaction:true,
+      persistAcrossBackgrounding:true,
     );
-    if (!ok) throw StateError('Autenticación biométrica cancelada.');
+    if (!ok) throw StateError('No se completó la verificación biométrica.');
+  }
+
+  /// Explicit first-time setup, before any request requiring quick response.
+  /// The backend sends an OTP to the verified email, tied to this session.
+  Future<void> sendEnrollmentCode() async {
+    if (!supported) throw StateError('Este proceso requiere Android o iOS.');
+    if (await isEnrolled()) throw StateError('Este teléfono ya está vinculado.');
+    await api.post('/mobile/credentials/challenge');
+  }
+
+  Future<void> enroll(String code) async {
+    if (!RegExp(r'^[0-9]{6}$').hasMatch(code)) {
+      throw StateError('Introduce el código de seis dígitos.');
+    }
+    if (await isEnrolled()) throw StateError('El teléfono ya está vinculado.');
+    await _authenticate();
+    final pair = await algorithm.newKeyPair();
+    final privateBytes = await pair.extractPrivateKeyBytes();
+    final publicKey = await pair.extractPublicKey();
+    final response = Map<String,dynamic>.from(
+      await api.post('/mobile/credentials', {
+        'publicKey':base64Encode(publicKey.bytes),
+        'platform':Platform.isAndroid?'ANDROID':'IOS',
+        'verificationCode':code,
+      }) as Map);
+    await GuardianApi.storage.write(
+      key:_seedKey,value:base64Encode(privateBytes));
+    await GuardianApi.storage.write(
+      key:_credentialKey,value:response['credentialId'] as String);
   }
 
   Future<({SimpleKeyPair pair, String credentialId})> _credential() async {
-    final existingSeed = await GuardianApi.storage.read(key:_seedKey);
-    final existingId = await GuardianApi.storage.read(key:_credentialKey);
-    if (existingSeed != null && existingId != null) {
-      return (pair:await algorithm.newKeyPairFromSeed(base64Decode(existingSeed)),
-              credentialId:existingId);
+    final seed = await GuardianApi.storage.read(key:_seedKey);
+    final id = await GuardianApi.storage.read(key:_credentialKey);
+    if (seed==null || id==null) {
+      throw StateError(
+        'Vincula primero tu teléfono desde Mi cuenta. '
+        'Para tu seguridad, no se permiten registros durante una solicitud.');
     }
-    final pair = existingSeed != null
-      ? await algorithm.newKeyPairFromSeed(base64Decode(existingSeed))
-      : await algorithm.newKeyPair();
-    final seed = await pair.extractPrivateKeyBytes();
-    final publicKey = await pair.extractPublicKey();
-    final result = Map<String,dynamic>.from(await api.post('/mobile/credentials',{
-      'publicKey':base64Encode(publicKey.bytes),
-      'platform': Platform.isAndroid ? 'ANDROID' : 'IOS',
-      'label':'Guardian Mobile',
-    }) as Map);
-    final id = result['credentialId'] as String;
-    await GuardianApi.storage.write(key:_seedKey,value:base64Encode(seed));
-    await GuardianApi.storage.write(key:_credentialKey,value:id);
-    return (pair:pair,credentialId:id);
+    return (pair:await algorithm.newKeyPairFromSeed(base64Decode(seed)),
+            credentialId:id);
   }
 
   Future<void> decide(Map<String,dynamic> challenge, {
     required bool approve,
     required int minutes,
   }) async {
-    if (challenge['state'] != 'PENDING') throw StateError('Solicitud no pendiente.');
-    final expiry = DateTime.parse(challenge['expiresAt'] as String);
-    if (!DateTime.now().isBefore(expiry)) throw StateError('La solicitud ya venció.');
-    if (approve && ![5,15,30].contains(minutes)) throw StateError('Duración inválida');
+    if(challenge['state']!='PENDING') {
+      throw StateError('La solicitud ya no está pendiente.');
+    }
+    final expires=DateTime.parse(challenge['expiresAt'] as String);
+    if(!DateTime.now().isBefore(expires)) {
+      throw StateError('La solicitud caducó. No se puede aprobar.');
+    }
+    if(approve && ![5,15,30].contains(minutes)) {
+      throw StateError('Selecciona 5, 15 o 30 minutos.');
+    }
+    // Validate local registration before biometric prompt.
+    final credentials=await _credential();
     await _authenticate();
-    final credential = await _credential();
-    final decision = approve ? 'APPROVED' : 'REJECTED';
-    final trust = approve ? minutes : 0;
-    final id = challenge['id'] as String;
-    final nonce = challenge['nonce'] as String;
-    final payload = 'guardian:v1:$id:$nonce:$decision:$trust';
-    final signed = await algorithm.sign(utf8.encode(payload),keyPair:credential.pair);
+    if(!DateTime.now().isBefore(expires)) {
+      throw StateError('La solicitud venció durante la autenticación.');
+    }
+    final decision=approve?'APPROVED':'REJECTED';
+    final duration=approve?minutes:0;
+    final id=challenge['id'] as String;
+    final nonce=challenge['nonce'] as String;
+    final canonical='guardian:v1:$id:$nonce:$decision:$duration';
+    final signed=await algorithm.sign(
+      utf8.encode(canonical),keyPair:credentials.pair);
     await api.post('/approvals/$id/decision',{
-      'credentialId':credential.credentialId,
+      'credentialId':credentials.credentialId,
       'decision':decision,
-      'trustMinutes':trust,
+      'trustMinutes':duration,
       'signature':base64Encode(signed.bytes),
     });
   }
+
+  /// Local-only logout must NOT delete the key: it is bound to this account
+  /// and can be revoked from the server in a separate authenticated session.
 }

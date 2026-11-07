@@ -92,3 +92,17 @@ No se hizo merge ni despliegue en este trabajo.
 ### Docker y Firebase
 
 En Docker se puede configurar `GUARDIAN_FIREBASE_SERVICE_ACCOUNT_JSON_BASE64` con el JSON de la cuenta de servicio codificado en Base64, guardado únicamente en `.env` y nunca en Git. Como alternativa, usa un fichero montado en el contenedor y `GUARDIAN_FIREBASE_SERVICE_ACCOUNT_PATH`. Las notificaciones externas se envían con texto genérico para evitar mostrar detalles sensibles en la pantalla bloqueada.
+
+## Vinculación protegida de teléfonos
+
+Antes de aceptar una solicitud, en Android/iOS se usa **Mi cuenta → Vincular este teléfono**.
+El backend requiere un código de seis dígitos enviado al correo confirmado y ligado a la
+sesión de registro; caduca a los 10 minutos, tiene máximo cinco intentos y limita
+solicitudes a una por minuto y ocho por hora. La API relevante es
+`POST /api/v1/mobile/credentials/challenge` seguida de
+`POST /api/v1/mobile/credentials` con `verificationCode`.
+
+**Riesgo residual:** la segunda verificación sigue dependiendo del correo electrónico
+y de la seguridad de la sesión; para un producto comercial se requieren MFA más fuerte,
+revisión de dispositivos vinculados, atestación móvil y firma no exportable por hardware.
+El teléfono debe inscribirse antes de solicitar aprobaciones que caducan en 45 segundos.
