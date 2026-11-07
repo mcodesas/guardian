@@ -33,3 +33,9 @@ Thumbs.db
 evidence/
 biometrics/
 captures/
+
+# Guardian Windows agent
+agent/windows/.venv/
+agent/windows/models/
+*.onnx
+*.enc
