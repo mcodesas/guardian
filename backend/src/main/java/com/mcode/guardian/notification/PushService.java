@@ -9,9 +9,11 @@ import com.google.firebase.messaging.Notification;
 import com.google.firebase.messaging.AndroidConfig;
 import com.mcode.guardian.auth.AuthPrincipal;
 import com.mcode.guardian.auth.AuthService;
+import com.mcode.guardian.approval.ApprovalSignature;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.ByteArrayInputStream;
@@ -40,18 +42,20 @@ import org.springframework.web.server.ResponseStatusException;
 public class PushService {
     private final JdbcTemplate jdbc;
     private final AuthService auth;
+    private final ApprovalSignature verifier;
     private final String accountPath;
     private final String serviceAccountBase64;
     private final byte[] encryptionKey;
     private FirebaseApp app;
     private final SecureRandom random = new SecureRandom();
 
-    public PushService(JdbcTemplate jdbc, AuthService auth,
+    public PushService(JdbcTemplate jdbc, AuthService auth, ApprovalSignature verifier,
         @Value("${GUARDIAN_FIREBASE_SERVICE_ACCOUNT_PATH:}") String accountPath,
         @Value("${GUARDIAN_FIREBASE_SERVICE_ACCOUNT_JSON_BASE64:}") String accountBase64,
         @Value("${GUARDIAN_PUSH_ENCRYPTION_KEY_BASE64:}") String encryptionKey) {
         this.jdbc=jdbc;
         this.auth=auth;
+        this.verifier=verifier;
         this.accountPath=accountPath;
         this.serviceAccountBase64=accountBase64;
         if (!encryptionKey.isEmpty()) {
@@ -110,23 +114,36 @@ public class PushService {
         } catch(Exception ex) { throw new IllegalStateException("Invalid encrypted push token",ex); }
     }
 
-    public void register(UUID accountId,String token,String platform) {
+    public void register(UUID accountId, String token, String platform,
+                         UUID credentialId, String signature) {
         if(app==null || encryptionKey==null) throw new ResponseStatusException(
             HttpStatus.SERVICE_UNAVAILABLE,"Configura las credenciales Firebase del servidor");
         if(token.length()>4096) throw new ResponseStatusException(
             HttpStatus.BAD_REQUEST,"Token inválido");
         if(!List.of("ANDROID","IOS").contains(platform)) throw new ResponseStatusException(
             HttpStatus.BAD_REQUEST,"Plataforma inválida");
+        List<String> keys = jdbc.query("""
+            SELECT public_key FROM mobile_credential
+            WHERE id = ? AND guardian_account_id = ?
+              AND platform = ? AND revoked_at IS NULL
+            """, (rs,i) -> rs.getString(1), credentialId, accountId, platform);
+        String proof = "guardian:push:v1:" + credentialId + ":" + token;
+        if(keys.isEmpty() || signature.length()>256 ||
+           !verifier.verify(keys.get(0),signature,proof)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                "Se requiere la firma de un teléfono vinculado");
+        }
         jdbc.update("""
             INSERT INTO push_registration
-                (guardian_account_id, token_hash, token_ciphertext, platform)
-            VALUES (?, ?, ?, ?)
+                (guardian_account_id, mobile_credential_id, token_hash, token_ciphertext, platform)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT (token_hash) DO UPDATE SET
                 guardian_account_id = EXCLUDED.guardian_account_id,
+                mobile_credential_id = EXCLUDED.mobile_credential_id,
                 token_ciphertext = EXCLUDED.token_ciphertext,
                 platform = EXCLUDED.platform,
                 revoked_at = NULL
-            """,accountId,auth.digestForCredential(token),encrypt(token),platform);
+            """,accountId,credentialId,auth.digestForCredential(token),encrypt(token),platform);
     }
 
     public void unregister(UUID accountId,String token) {
@@ -143,9 +160,10 @@ public class PushService {
     public void send(Delivery delivery) {
         if(app==null || encryptionKey==null) return;
         List<String> encryptedTokens=jdbc.query("""
-            SELECT token_ciphertext FROM push_registration
-            WHERE guardian_account_id = ? AND revoked_at IS NULL
-              AND token_ciphertext IS NOT NULL
+            SELECT p.token_ciphertext FROM push_registration p
+            JOIN mobile_credential m ON m.id = p.mobile_credential_id
+            WHERE p.guardian_account_id = ? AND p.revoked_at IS NULL
+              AND m.revoked_at IS NULL AND p.token_ciphertext IS NOT NULL
             """,(rs,i)->rs.getString(1),delivery.owner());
         for(String encrypted:encryptedTokens) {
             try {
@@ -180,14 +198,15 @@ class PushController {
     private final PushService push;
     PushController(PushService push) { this.push=push; }
 
-    public record Registration(@NotBlank String token,@NotBlank String platform) {}
+    public record Registration(@NotBlank String token,@NotBlank String platform,
+                               @NotNull UUID credentialId,@NotBlank String signature) {}
     public record Unregistration(@NotBlank String token) {}
 
     @PostMapping("/register")
     public Map<String,Boolean> register(
         @org.springframework.security.core.annotation.AuthenticationPrincipal
         AuthPrincipal principal,@Valid @RequestBody Registration data) {
-        push.register(principal.accountId(),data.token(),data.platform());
+        push.register(principal.accountId(),data.token(),data.platform(),data.credentialId(),data.signature());
         return Map.of("registered",true);
     }
     @PostMapping("/unregister")

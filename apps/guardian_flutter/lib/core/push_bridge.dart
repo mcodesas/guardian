@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:guardian_app/core/api.dart';
+import 'package:guardian_app/core/mobile_approvals.dart';
 
 /// Requires Android/iOS Firebase project setup via flutterfire configure and
 /// server-side Firebase Admin credentials. The app works without it, but
@@ -14,9 +15,12 @@ class PushBridge {
   bool ready = false;
   String? token;
 
-  Future<void> start(GuardianApi api, Future<void> Function() reload) async {
+  Future<void> start(GuardianApi api, Future<void> Function() reload,
+      String accountId) async {
     if (!(Platform.isAndroid || Platform.isIOS) || ready) return;
     try {
+      final key=MobileApprovals(api,accountId);
+      if(!await key.isEnrolled()) return;
       await Firebase.initializeApp();
       final fcm = FirebaseMessaging.instance;
       final settings = await fcm.requestPermission(
@@ -25,14 +29,13 @@ class PushBridge {
       if(Platform.isIOS && await fcm.getAPNSToken()==null) return;
       final newToken=await fcm.getToken(); // deprecated upstream; see FID migration
       if(newToken==null) return;
-      await api.post('/push/register',{
-        'token':newToken,'platform':Platform.isAndroid?'ANDROID':'IOS'});
+      await api.post('/push/register',await key.registrationProof(newToken));
       token=newToken;
       ready=true;
       _rotations=fcm.onTokenRefresh.listen((newToken)async{
         token=newToken;
-        try { await api.post('/push/register',{
-          'token':newToken,'platform':Platform.isAndroid?'ANDROID':'IOS'}); }
+        try { await api.post('/push/register',
+          await key.registrationProof(newToken)); }
         catch (_) { /* Retry at next login/registration. */ }
       });
       _foreground=FirebaseMessaging.onMessage.listen((_){

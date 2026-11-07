@@ -118,6 +118,18 @@ class MobileApprovals {
     });
   }
 
+  Future<Map<String,String>> registrationProof(String token) async {
+    final credential=await _credential();
+    final content='guardian:push:v1:${credential.credentialId}:$token';
+    final sig=await algorithm.sign(utf8.encode(content),keyPair:credential.pair);
+    return {
+      'token':token,
+      'platform':Platform.isAndroid?'ANDROID':'IOS',
+      'credentialId':credential.credentialId,
+      'signature':base64Encode(sig.bytes),
+    };
+  }
+
   /// Local-only logout must NOT delete the key: it is bound to this account
   /// and can be revoked from the server in a separate authenticated session.
 }

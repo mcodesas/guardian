@@ -87,6 +87,10 @@ public class ApprovalController {
             AND guardian_account_id = ? AND revoked_at IS NULL
             """, id, principal.accountId());
         if (n == 0) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Credencial no encontrada");
+        jdbc.update("""
+            UPDATE push_registration SET revoked_at=now(), token_ciphertext=NULL
+            WHERE mobile_credential_id=?
+            """,id);
         return Map.of("revoked", true);
     }
 

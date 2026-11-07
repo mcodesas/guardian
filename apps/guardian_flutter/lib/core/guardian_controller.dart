@@ -43,7 +43,7 @@ class GuardianController extends ChangeNotifier {
       profile = Map<String,dynamic>.from(await api.get('/auth/me') as Map);
       await reload();
       startPolling();
-      await push.start(api,reload);
+      await push.start(api,reload,(profile?['id']??'').toString());
     } catch (e) {
       profile = null;
       if (e is ApiFailure && e.status == 401) await api.clearTokens();
@@ -82,6 +82,7 @@ class GuardianController extends ChangeNotifier {
       profile = Map<String,dynamic>.from(await api.get('/auth/me') as Map);
       await reload();
       startPolling();
+      await push.start(api,reload,(profile?['id']??'').toString());
     } catch (e) {
       error = '$e';
       rethrow;

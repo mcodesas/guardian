@@ -603,8 +603,13 @@ class _GuardianShellState extends State<GuardianShell> {
       }
       if(code==null) return;
       await approval.enroll(code);
-      if(mounted) guardianMessage(context,
-        'Teléfono vinculado. Ahora puedes aprobar accesos con biometría.');
+      await widget.controller.push.start(widget.controller.api,
+        widget.controller.reload,accountId);
+      if(mounted) {
+        setState(() {});
+        guardianMessage(context,
+          'Teléfono vinculado. Ya puedes aprobar accesos con biometría.');
+      }
     });
   }
 
