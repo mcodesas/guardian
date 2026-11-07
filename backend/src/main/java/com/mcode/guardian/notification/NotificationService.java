@@ -11,17 +11,21 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.web.bind.annotation.*;
 
 @Service
 public class NotificationService {
     private final JdbcTemplate jdbc;
+    private final ApplicationEventPublisher events;
     private final JavaMailSender sender;
     private final String from;
 
     public NotificationService(JdbcTemplate jdbc, ObjectProvider<JavaMailSender> mail,
+                               ApplicationEventPublisher events,
                                @Value("${guardian.auth.mail-from:}") String from) {
         this.jdbc = jdbc;
+        this.events = events;
         this.sender = mail.getIfAvailable();
         this.from = from;
     }
@@ -33,6 +37,7 @@ public class NotificationService {
                 approval_challenge_id, security_incident_id, type, title, body)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """, owner, device, challenge, incident, type, title, body);
+        events.publishEvent(new PushService.Delivery(owner, type, title, body, challenge));
         // Email failures must not cause a security event to disappear or roll back.
         if (sender != null && !from.isBlank() && !"APPROVAL_DECIDED".equals(type)) {
             try {
