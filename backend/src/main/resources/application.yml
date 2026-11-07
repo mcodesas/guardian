@@ -2,9 +2,9 @@ spring:
   application:
     name: guardian-backend
   datasource:
-    url: \${GUARDIAN_DB_URL:jdbc:postgresql://localhost:5432/guardian}
-    username: \${GUARDIAN_DB_USER:guardian}
-    password: \${GUARDIAN_DB_PASSWORD}
+    url: ${GUARDIAN_DB_URL:jdbc:postgresql://localhost:5432/guardian}
+    username: ${GUARDIAN_DB_USER:guardian}
+    password: ${GUARDIAN_DB_PASSWORD}
   jpa:
     open-in-view: false
     hibernate:

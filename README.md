@@ -6,23 +6,23 @@
 
 ## Componentes
 
-- \`apps/mobile/\`: cliente Flutter Android/iOS para alertas y aprobación remota (pendiente de implementación).
-- \`apps/desktop/\`: panel Flutter Windows/macOS/Linux (pendiente de implementación).
-- \`agent/\`: agente nativo de seguridad para el bloqueo local, sensores y reconocimiento (pendiente).
-- \`backend/\`: Spring Boot 3.5 + Java 21, acceso inicial restringido y esquema PostgreSQL.
-- \`docs/\`: arquitectura, restricciones por plataforma, amenazas y plan de implementación.
+- `apps/mobile/`: cliente Flutter Android/iOS para alertas y aprobación remota (pendiente de implementación).
+- `apps/desktop/`: panel Flutter Windows/macOS/Linux (pendiente de implementación).
+- `agent/`: agente nativo de seguridad para el bloqueo local, sensores y reconocimiento (pendiente).
+- `backend/`: Spring Boot 3.5 + Java 21, acceso inicial restringido y esquema PostgreSQL.
+- `docs/`: arquitectura, restricciones por plataforma, amenazas y plan de implementación.
 
 ## Arranque del backend (desarrollo)
 
 Requisitos: Docker con Compose. Desde la raíz:
 
-\`\`\`bash
+```bash
 cp .env.example .env
 # Cambia GUARDIAN_DB_PASSWORD en .env antes de levantar el entorno
 docker compose up --build -d
 docker compose ps
 curl http://localhost:8080/actuator/health
-\`\`\`
+```
 
 El servicio expone inicialmente solo el endpoint de salud. El resto de las rutas HTTP devuelve acceso denegado deliberadamente hasta implementar autenticación fuerte, vinculación de dispositivos y autorización.
 

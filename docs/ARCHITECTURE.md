@@ -2,7 +2,7 @@
 
 ## Límite de confianza
 
-\`\`\`text
+```text
 [SO Windows/macOS/Linux]   [Android/iOS]
        |                       |
    Agente local          App Flutter móvil
@@ -22,17 +22,17 @@
               PostgreSQL
                    |
         Evidencias cifradas (futuro)
-\`\`\`
+```
 
 La app de escritorio Flutter solo configura y visualiza. El agente nativo ejecuta el monitoreo y debe respetar los permisos/sesión del SO. No hay reconocimiento biométrico en backend; ni fotografías ni embeddings se deben guardar en PostgreSQL. Las evidencias, si el usuario habilita su captura, se cifran y tienen retención limitada.
 
 ## Estados de identidad
 
-- \`OWNER_CONFIRMED\`: coincidencia de confianza suficiente + controles anti-suplantación.
-- \`UNKNOWN_PERSON\`: presencia de otra persona observada; decisión probabilística, no certeza absoluta.
-- \`NOT_VERIFIABLE\`: no hay rostro/cámara disponible u observación inconclusa.
-- \`OWNER_ABSENT\`: ausencia sostenida, según umbrales configurados.
-- \`CAMERA_UNAVAILABLE\`: cámara desconectada, ocupada, tapada o denegada.
+- `OWNER_CONFIRMED`: coincidencia de confianza suficiente + controles anti-suplantación.
+- `UNKNOWN_PERSON`: presencia de otra persona observada; decisión probabilística, no certeza absoluta.
+- `NOT_VERIFIABLE`: no hay rostro/cámara disponible u observación inconclusa.
+- `OWNER_ABSENT`: ausencia sostenida, según umbrales configurados.
+- `CAMERA_UNAVAILABLE`: cámara desconectada, ocupada, tapada o denegada.
 
 Se registra por separado la **actividad de la sesión** (no el contenido de teclas ni pantalla) y la **identidad**. Una ausencia no implica intrusión.
 
@@ -62,10 +62,10 @@ Se almacena evidencia solo si hay consentimiento y está habilitada, se bloquea 
 
 ## APIs futuras (aún no disponibles)
 
-- \`POST /api/v1/device-enrollments\` — vinculación criptográfica
-- \`POST /api/v1/security-events\` — reporte autenticado de incidentes
-- \`POST /api/v1/approval-challenges\` — desafío remoto
-- \`POST /api/v1/approval-challenges/{id}/decision\` — decisión firmada
-- \`GET /api/v1/me/devices\` — inventario y estado
+- `POST /api/v1/device-enrollments` — vinculación criptográfica
+- `POST /api/v1/security-events` — reporte autenticado de incidentes
+- `POST /api/v1/approval-challenges` — desafío remoto
+- `POST /api/v1/approval-challenges/{id}/decision` — decisión firmada
+- `GET /api/v1/me/devices` — inventario y estado
 
 **Estado actual:** únicamente backend base, esquema inicial y endpoint de salud. Ninguno de los endpoints anteriores está implementado.

@@ -10,4 +10,4 @@ Responsabilidades:
 - recibir excepciones de monitoreo firmadas y con duración finita;
 - registrar incidentes en cola cifrada offline.
 
-**Todavía no hay agente ejecutable.** La arquitectura debe distinguir \`UNKNOWN_PERSON\` de \`NOT_VERIFIABLE\`; la pérdida de cámara no confirma intrusión.
+**Todavía no hay agente ejecutable.** La arquitectura debe distinguir `UNKNOWN_PERSON` de `NOT_VERIFIABLE`; la pérdida de cámara no confirma intrusión.
