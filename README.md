@@ -57,3 +57,7 @@ Guía completa: [Flutter](apps/guardian_flutter/README.md). Prototipo de agente:
 - [Plan de fases](docs/ROADMAP.md)
 
 **Organización:** MCode SAS. **Rama de implementación:** `feat/bootstrap-guardian-20261107`.
+
+## Plan de desarrollo por pasos
+
+Guardian está organizado en [4 fases y 20 pasos](docs/PLAN_20_PASOS.md). La [auditoría inicial](docs/QA_BASELINE_20261108.md) registra hallazgos y el estado real de las pruebas antes de continuar con el backend.
