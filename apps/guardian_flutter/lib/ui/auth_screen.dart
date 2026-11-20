@@ -279,10 +279,11 @@ class _AuthScreenState extends State<AuthScreen> {
       Positioned(right:-140,top:-130,child:Container(width:440,height:440,
         decoration:BoxDecoration(shape:BoxShape.circle,
           border:Border.all(color:GuardianPalette.teal.withValues(alpha:.14),width:55)))),
-      Padding(padding:const EdgeInsets.all(60),child:Column(
+      Padding(padding:const EdgeInsets.symmetric(horizontal:34,vertical:36),child:Column(
         crossAxisAlignment:CrossAxisAlignment.start,children:[
-          const Row(children:[
-            GuardianLogo(size:52),SizedBox(width:15),
+          const Wrap(crossAxisAlignment:WrapCrossAlignment.center,spacing:15,
+            runSpacing:8,children:[
+            GuardianLogo(size:52),
             Text('GUARDIAN',style:TextStyle(color:GuardianPalette.white,
               fontSize:22,fontWeight:FontWeight.w900,letterSpacing:3.4)),
           ]),
@@ -297,9 +298,9 @@ class _AuthScreenState extends State<AuthScreen> {
             'autorizaciones seguras desde tu teléfono.',
             style:TextStyle(color:GuardianPalette.muted,fontSize:17,height:1.55)),
           const SizedBox(height:36),
-          const Row(children:[
+          const Wrap(crossAxisAlignment:WrapCrossAlignment.center,
+            spacing:10,runSpacing:8,children:[
             Icon(Icons.check_circle,color:GuardianPalette.teal,size:18),
-            SizedBox(width:10),
             Text('Tu identidad. Tus dispositivos. Tus reglas.',
               style:TextStyle(color:GuardianPalette.white)),
           ]),
