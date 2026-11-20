@@ -77,9 +77,9 @@ jobs:
           echo "GUARDIAN_API_PORT=18083" >> "$GITHUB_ENV"
           echo "GUARDIAN_DB_PORT=15433" >> "$GITHUB_ENV"
       - name: Docker Compose config
-        run: docker compose -f docker-compose.yml config --quiet
-      - name: Build and run isolated PostgreSQL + API
-        run: docker compose -f docker-compose.yml up --build --detach
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml config --quiet
+      - name: Build and run isolated PostgreSQL + API + Mailpit
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up --build --detach
       - name: Smoke test database migrations and health
         run: |
           set -euo pipefail
@@ -93,12 +93,14 @@ jobs:
           done
           echo "::error::Guardian API failed Docker smoke test"
           exit 1
+      - name: End-to-end account, SMTP, agent and approval API smoke
+        run: python tests/smoke_api.py
       - name: Diagnostic logs on failure
         if: failure()
-        run: docker compose -f docker-compose.yml logs --tail=150
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --tail=150
       - name: Stop ephemeral stack
         if: always()
-        run: docker compose -f docker-compose.yml down --volumes --remove-orphans
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down --volumes --remove-orphans
 
   publish:
     if: github.ref == 'refs/heads/main'
