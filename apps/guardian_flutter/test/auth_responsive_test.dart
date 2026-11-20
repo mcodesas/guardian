@@ -28,6 +28,26 @@ void main() {
     expect(tester.takeException(),isNull);
   });
 
+  testWidgets('Login has no horizontal overflow at 320 logical pixels',
+      (WidgetTester tester) async {
+    tester.view.physicalSize=const Size(320,720);
+    tester.view.devicePixelRatio=1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller=GuardianController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(MaterialApp(theme:guardianTheme(),
+      home:AuthScreen(controller:controller)));
+    expect(find.text('Bienvenido de nuevo'),findsOneWidget);
+    expect(tester.takeException(),isNull);
+    await tester.ensureVisible(find.text('Regístrate'));
+    await tester.tap(find.text('Regístrate'));
+    await tester.pumpAndSettle();
+    expect(find.text('Crea tu espacio seguro'),findsOneWidget);
+    expect(tester.takeException(),isNull);
+  });
+
   testWidgets('Desktop login uses two panel layout', (WidgetTester tester) async {
     tester.view.physicalSize=const Size(1300,860);
     tester.view.devicePixelRatio=1;

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:guardian_app/core/guardian_controller.dart';
 import 'package:guardian_app/core/guardian_theme.dart';
@@ -149,12 +150,15 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   @override Widget build(BuildContext context) {
-    final wide=MediaQuery.sizeOf(context).width>=950;
+    final viewport=MediaQuery.sizeOf(context).width;
+    final wide=viewport>=950;
+    final paneWidth=wide ? viewport/2 : viewport;
+    final formWidth=math.max(0.0,math.min(440.0,paneWidth-48));
     return Scaffold(body:SafeArea(child:Row(children:[
       if(wide) Expanded(child:_brandSide()),
       Expanded(child:Center(child:SingleChildScrollView(
         padding:const EdgeInsets.symmetric(horizontal:24,vertical:28),
-        child:ConstrainedBox(constraints:const BoxConstraints(maxWidth:440),
+        child:SizedBox(width:formWidth,
           child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
           if(!wide) ...[
             const GuardianLogo(),const SizedBox(height:20),
@@ -235,7 +239,9 @@ class _AuthScreenState extends State<AuthScreen> {
                 }
               },child:const Text('Reenviar código'))),
           const SizedBox(height:18),
-          Row(mainAxisAlignment:MainAxisAlignment.center,children:[
+          Wrap(alignment:WrapAlignment.center,
+            crossAxisAlignment:WrapCrossAlignment.center,
+            spacing:4,children:[
             Text(mode==AuthMode.login?'¿No tienes cuenta?':'¿Ya tienes cuenta?',
               style:const TextStyle(color:GuardianPalette.muted)),
             TextButton(onPressed:()=>setState(() {
