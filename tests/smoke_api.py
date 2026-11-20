@@ -88,6 +88,13 @@ def main() -> None:
         {"email": email, "password": password, "clientLabel": "guardian-ci"})
     access = tokens["accessToken"]
     assert len(access) >= 32 and len(tokens["refreshToken"]) >= 32
+    # Refresh tokens rotate. The old pair must become invalid.
+    rotated = api("/auth/refresh", "POST",
+                  {"refreshToken": tokens["refreshToken"]})
+    api("/auth/me", token=access, expected=401)
+    api("/auth/refresh", "POST",
+        {"refreshToken": tokens["refreshToken"]}, expected=401)
+    access = rotated["accessToken"]
 
     owner = api("/auth/me", token=access)
     assert owner["email"] == email
@@ -99,6 +106,8 @@ def main() -> None:
     device_id, key = device["id"], device["agentKey"]
     assert device["state"] == "UNPAIRED"
 
+    api(f"/agent/{device_id}/activate", "POST",
+        agent_key="not-the-agent-secret", expected=401)
     assert api(f"/agent/{device_id}/activate", "POST", agent_key=key)["paired"]
     policy = api(f"/agent/{device_id}/policy", agent_key=key)
     assert policy["lockOnAway"] is True
@@ -121,10 +130,35 @@ def main() -> None:
     notifications = api("/notifications", token=access)
     assert any(v["type"] == "APPROVAL_REQUIRED" for v in notifications)
 
+    # A forged decision without a registered mobile signing key is forbidden.
+    api(f"/approvals/{challenge['challengeId']}/decision", "POST", {
+        "credentialId": str(uuid.uuid4()),
+        "decision": "APPROVED",
+        "trustMinutes": 5,
+        "signature": "not-a-valid-signature",
+    }, token=access, expected=403)
+
+    # Account recovery revokes every previous session and requires a new password.
+    api("/auth/request-reset", "POST", {"email": email})
+    reset_code = mailbox_code("Recuperar acceso")
+    new_password = "CI-Renewed-" + secrets.token_hex(16)
+    api("/auth/reset", "POST", {
+        "email": email, "code": reset_code, "newPassword": new_password,
+    })
+    api("/auth/me", token=access, expected=401)
+    api("/auth/login", "POST", {
+        "email": email, "password": password, "clientLabel": "old-credentials",
+    }, expected=401)
+    new_session = api("/auth/login", "POST", {
+        "email": email, "password": new_password, "clientLabel": "recovered-ci",
+    })
+    access = new_session["accessToken"]
+
     api("/auth/logout", "POST", token=access)
     api("/auth/me", token=access, expected=401)
     print("PASS: health, registration, SMTP OTP, login, bearer auth, devices, "
-          "agent, security incident, approval challenge, notifications, logout")
+          "agent, security incident, approval challenge, signed-decision denial, "
+          "password recovery, token rotation and logout")
 
 
 if __name__ == "__main__":
