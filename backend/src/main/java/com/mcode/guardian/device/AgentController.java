@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.security.SecureRandom;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
@@ -129,7 +130,7 @@ public class AgentController {
         jdbc.update("""
             INSERT INTO approval_challenge (id, protected_device_id, nonce_hash,
                 challenge_nonce, expires_at) VALUES (?, ?, ?, ?, ?)
-            """, id, deviceId, auth.digestForCredential(nonce), nonce, expires);
+            """, id, deviceId, auth.digestForCredential(nonce), nonce, Timestamp.from(expires));
         notifications.publish((UUID)agent.get("guardian_account_id"), deviceId,id,null,
             "APPROVAL_REQUIRED","¿Autorizas este acceso?",
             "No se pudo verificar el rostro en " + agent.get("display_name") +

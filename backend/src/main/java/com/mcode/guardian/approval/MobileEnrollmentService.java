@@ -2,6 +2,7 @@ package com.mcode.guardian.approval;
 
 import com.mcode.guardian.auth.AuthPrincipal;
 import java.security.SecureRandom;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -86,7 +87,7 @@ public class MobileEnrollmentService {
                     (guardian_account_id, requested_by_session, code_hash, expires_at)
                 VALUES (?, ?, ?, ?)
                 """, principal.accountId(), principal.sessionId(),
-                passwords.encode(code + pepper), Instant.now().plus(10, ChronoUnit.MINUTES));
+                passwords.encode(code + pepper), Timestamp.from(Instant.now().plus(10, ChronoUnit.MINUTES)));
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(from);

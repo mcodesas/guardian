@@ -3,6 +3,7 @@ package com.mcode.guardian.config;
 import com.mcode.guardian.auth.BearerAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -18,6 +19,15 @@ public class ApiSecurityConfig {
     @Bean
     PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
+    }
+
+    // The bearer filter is installed inside Spring Security, never as a
+    // second, container-level servlet filter.
+    @Bean
+    FilterRegistrationBean<BearerAuthFilter> bearerFilterRegistration(BearerAuthFilter filter) {
+        FilterRegistrationBean<BearerAuthFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean

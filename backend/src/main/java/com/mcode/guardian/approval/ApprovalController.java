@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.security.SecureRandom;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
@@ -156,7 +157,7 @@ public class ApprovalController {
         jdbc.update("""
             UPDATE approval_challenge SET state = ?, decided_at = now(),
                 decided_by_credential_id = ?, trust_until = ? WHERE id = ?
-            """, body.decision(), body.credentialId(), until, challengeId);
+            """, body.decision(), body.credentialId(), until == null ? null : Timestamp.from(until), challengeId);
         notifications.publish(principal.accountId(), (UUID)challenge.get("protected_device_id"),
             challengeId, null, "APPROVAL_DECIDED",
             "APPROVED".equals(body.decision()) ? "Acceso autorizado" : "Acceso rechazado",

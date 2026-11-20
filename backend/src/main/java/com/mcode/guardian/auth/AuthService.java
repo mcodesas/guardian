@@ -1,6 +1,7 @@
 package com.mcode.guardian.auth;
 
 import java.nio.charset.StandardCharsets;
+import java.sql.Timestamp;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -109,7 +110,7 @@ public class AuthService {
               verification_code_hash, verification_expires_at, verification_sent_at)
             VALUES (?, ?, ?, ?, ?, now())
             """, email, name.trim(), passwordEncoder.encode(password),
-            passwordEncoder.encode(code + pepper), Instant.now().plus(10, ChronoUnit.MINUTES));
+            passwordEncoder.encode(code + pepper), Timestamp.from(Instant.now().plus(10, ChronoUnit.MINUTES)));
         sendCode(email, code);
     }
 
@@ -176,7 +177,7 @@ public class AuthService {
                 verification_sent_at = now(), verification_attempts = 0
             WHERE id = ?
             """,passwordEncoder.encode(code+pepper),
-            Instant.now().plus(10,ChronoUnit.MINUTES),(UUID)item.get("id"));
+            Timestamp.from(Instant.now().plus(10,ChronoUnit.MINUTES)),(UUID)item.get("id"));
         sendCode(email,code);
     }
 
@@ -198,7 +199,7 @@ public class AuthService {
                 reset_code_expires_at = ?, reset_code_attempts = 0,
                 reset_code_sent_at = now() WHERE id = ?
             """,passwordEncoder.encode(code+pepper),
-            Instant.now().plus(10,ChronoUnit.MINUTES),(UUID)item.get("id"));
+            Timestamp.from(Instant.now().plus(10,ChronoUnit.MINUTES)),(UUID)item.get("id"));
         sendResetCode(email,code);
     }
 
@@ -251,7 +252,7 @@ public class AuthService {
             if (!locked) {
                 int failures = ((Number)row.get("failed_login_attempts")).intValue() + 1;
                 jdbc.update("UPDATE guardian_account SET failed_login_attempts = ?, locked_until = ? WHERE id = ?",
-                    failures, failures >= 5 ? Instant.now().plus(15, ChronoUnit.MINUTES) : null, id);
+                    failures, failures >= 5 ? Timestamp.from(Instant.now().plus(15, ChronoUnit.MINUTES)) : null, id);
             }
             return Map.of("authenticationFailed", true);
         }
@@ -271,7 +272,7 @@ public class AuthService {
             INSERT INTO auth_session (guardian_account_id, access_token_hash,
                 refresh_token_hash, access_expires_at, refresh_expires_at, client_label)
             VALUES (?, ?, ?, ?, ?, ?)
-            """, id, digest(access), digest(refresh), accessExpiry, refreshExpiry,
+            """, id, digest(access), digest(refresh), Timestamp.from(accessExpiry), Timestamp.from(refreshExpiry),
             clientLabel == null ? "" : clientLabel.substring(0, Math.min(clientLabel.length(), 120)));
         return Map.of("accessToken", access, "refreshToken", refresh,
             "accessExpiresAt", accessExpiry.toString());
@@ -294,7 +295,7 @@ public class AuthService {
             UPDATE auth_session SET access_token_hash = ?, refresh_token_hash = ?,
                 access_expires_at = ?, refresh_expires_at = ?
             WHERE id = ?
-            """, digest(access), digest(refresh), accessExpiry, refreshExpiry, sessionId);
+            """, digest(access), digest(refresh), Timestamp.from(accessExpiry), Timestamp.from(refreshExpiry), sessionId);
         return Map.of("accessToken", access, "refreshToken", refresh,
             "accessExpiresAt", accessExpiry.toString(), "accountId", accountId.toString());
     }
