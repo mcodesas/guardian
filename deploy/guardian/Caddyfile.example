@@ -1,0 +1,6 @@
+# Example only when Caddy runs ON THE VPS HOST.
+# With Docker-based Caddy use a shared container network instead.
+guardian.example.com {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8283
+}

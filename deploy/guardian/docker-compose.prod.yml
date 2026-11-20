@@ -1,0 +1,72 @@
+name: guardian
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: guardian
+      POSTGRES_USER: guardian
+      POSTGRES_PASSWORD: ${GUARDIAN_DB_PASSWORD:?Configura GUARDIAN_DB_PASSWORD en /opt/guardian/.env}
+    volumes:
+      - guardian-pgdata:/var/lib/postgresql/data
+    networks:
+      - guardian-private
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U guardian -d guardian"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api:
+    image: ghcr.io/mcodesas/guardian-api:${GUARDIAN_IMAGE_TAG:?Especifica un tag de imagen publicado}
+    restart: unless-stopped
+    environment:
+      GUARDIAN_DB_URL: jdbc:postgresql://db:5432/guardian
+      GUARDIAN_DB_USER: guardian
+      GUARDIAN_DB_PASSWORD: ${GUARDIAN_DB_PASSWORD:?Configura GUARDIAN_DB_PASSWORD}
+      GUARDIAN_AUTH_PEPPER: ${GUARDIAN_AUTH_PEPPER:?Configura GUARDIAN_AUTH_PEPPER}
+      GUARDIAN_SMTP_HOST: ${GUARDIAN_SMTP_HOST:-}
+      GUARDIAN_SMTP_PORT: ${GUARDIAN_SMTP_PORT:-587}
+      GUARDIAN_SMTP_USERNAME: ${GUARDIAN_SMTP_USERNAME:-}
+      GUARDIAN_SMTP_PASSWORD: ${GUARDIAN_SMTP_PASSWORD:-}
+      GUARDIAN_SMTP_AUTH: ${GUARDIAN_SMTP_AUTH:-true}
+      GUARDIAN_SMTP_STARTTLS: ${GUARDIAN_SMTP_STARTTLS:-true}
+      GUARDIAN_MAIL_FROM: ${GUARDIAN_MAIL_FROM:-}
+      GUARDIAN_FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: ${GUARDIAN_FIREBASE_SERVICE_ACCOUNT_JSON_BASE64:-}
+      GUARDIAN_PUSH_ENCRYPTION_KEY_BASE64: ${GUARDIAN_PUSH_ENCRYPTION_KEY_BASE64:-}
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8"
+    ports:
+      - "127.0.0.1:8283:8080"
+    networks:
+      - guardian-private
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  guardian-pgdata:
+
+networks:
+  guardian-private:
+    driver: bridge
