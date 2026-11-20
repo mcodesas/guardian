@@ -48,6 +48,20 @@ void main() {
     expect(tester.takeException(),isNull);
   });
 
+  testWidgets('Wide split login remains usable at 960 pixels',
+      (WidgetTester tester) async {
+    tester.view.physicalSize=const Size(960,720);
+    tester.view.devicePixelRatio=1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final controller=GuardianController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(MaterialApp(theme:guardianTheme(),
+      home:AuthScreen(controller:controller)));
+    expect(find.text('Tu mundo,\nbajo protección.'),findsOneWidget);
+    expect(tester.takeException(),isNull);
+  });
+
   testWidgets('Desktop login uses two panel layout', (WidgetTester tester) async {
     tester.view.physicalSize=const Size(1300,860);
     tester.view.devicePixelRatio=1;
