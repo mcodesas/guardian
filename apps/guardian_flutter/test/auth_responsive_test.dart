@@ -58,7 +58,7 @@ void main() {
     addTearDown(controller.dispose);
     await tester.pumpWidget(MaterialApp(theme:guardianTheme(),
       home:AuthScreen(controller:controller)));
-    expect(find.text('Tu mundo,\\nbajo protección.'),findsOneWidget);
+    expect(find.text('Tu mundo,\nbajo protección.'),findsOneWidget);
     expect(tester.takeException(),isNull);
   });
 
