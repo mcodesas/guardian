@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: guardian
+      POSTGRES_DB: guardian
+      POSTGRES_PASSWORD: ${GUARDIAN_DB_PASSWORD:?Define GUARDIAN_DB_PASSWORD}
+    ports:
+      - "127.0.0.1:${GUARDIAN_DB_PORT:-5432}:5432"
+    volumes:
+      - guardian-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U guardian -d guardian"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      GUARDIAN_DB_URL: jdbc:postgresql://db:5432/guardian
+      GUARDIAN_DB_USER: guardian
+      GUARDIAN_DB_PASSWORD: ${GUARDIAN_DB_PASSWORD:?Define GUARDIAN_DB_PASSWORD}
+      GUARDIAN_AUTH_PEPPER: ${GUARDIAN_AUTH_PEPPER:?Define GUARDIAN_AUTH_PEPPER}
+      GUARDIAN_SMTP_HOST: ${GUARDIAN_SMTP_HOST:-}
+      GUARDIAN_SMTP_PORT: ${GUARDIAN_SMTP_PORT:-587}
+      GUARDIAN_SMTP_USERNAME: ${GUARDIAN_SMTP_USERNAME:-}
+      GUARDIAN_SMTP_PASSWORD: ${GUARDIAN_SMTP_PASSWORD:-}
+      GUARDIAN_SMTP_AUTH: ${GUARDIAN_SMTP_AUTH:-true}
+      GUARDIAN_SMTP_STARTTLS: ${GUARDIAN_SMTP_STARTTLS:-true}
+      GUARDIAN_MAIL_FROM: ${GUARDIAN_MAIL_FROM:-}
+      GUARDIAN_FIREBASE_SERVICE_ACCOUNT_PATH: ${GUARDIAN_FIREBASE_SERVICE_ACCOUNT_PATH:-}
+      GUARDIAN_FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: ${GUARDIAN_FIREBASE_SERVICE_ACCOUNT_JSON_BASE64:-}
+      GUARDIAN_PUSH_ENCRYPTION_KEY_BASE64: ${GUARDIAN_PUSH_ENCRYPTION_KEY_BASE64:-}
+    ports:
+      - "127.0.0.1:${GUARDIAN_API_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  guardian-db:
