@@ -218,7 +218,7 @@ public class AccountService {
             UPDATE guardian_account SET email_change_to=?, email_change_code_hash=?,
                email_change_expires_at=?, email_change_attempts=0,
                email_change_sent_at=now() WHERE id=?
-            """, email, encodeCode(code), Instant.now().plus(10, ChronoUnit.MINUTES),
+            """, email, encodeCode(code), java.sql.Timestamp.from(Instant.now().plus(10, ChronoUnit.MINUTES)),
                 principal.accountId());
         sendCode(email, "Verificar nuevo correo", code);
         audit(principal.accountId(), principal.accountId(), "EMAIL_CHANGE_REQUESTED");
@@ -288,7 +288,7 @@ public class AccountService {
         jdbc.update("""
             UPDATE guardian_account SET reactivation_code_hash=?, reactivation_expires_at=?,
               reactivation_attempts=0, reactivation_sent_at=now() WHERE id=?
-            """, encodeCode(code), Instant.now().plus(10, ChronoUnit.MINUTES),
+            """, encodeCode(code), java.sql.Timestamp.from(Instant.now().plus(10, ChronoUnit.MINUTES)),
                 rows.get(0).get("id"));
         sendCode(email,"Reactivar tu cuenta",code);
     }
@@ -334,7 +334,7 @@ public class AccountService {
         jdbc.update("""
             UPDATE guardian_account SET deletion_code_hash=?, deletion_expires_at=?,
               deletion_attempts=0, deletion_sent_at=now() WHERE id=?
-            """, encodeCode(code),Instant.now().plus(10,ChronoUnit.MINUTES),
+            """, encodeCode(code),java.sql.Timestamp.from(Instant.now().plus(10,ChronoUnit.MINUTES)),
                 principal.accountId());
         sendCode((String)rows.get(0).get("email"),"Confirmar eliminación definitiva",code);
         audit(principal.accountId(), principal.accountId(), "ACCOUNT_DELETION_REQUESTED");

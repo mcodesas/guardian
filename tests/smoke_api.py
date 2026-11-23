@@ -110,6 +110,31 @@ def main() -> None:
     assert len(active_sessions) == 1 and active_sessions[0]["current"]
     assert isinstance(api("/account/members",token=access),list)
     assert isinstance(api("/workspaces",token=access),list)
+
+    # Email change must verify a fresh code and revoke previous sessions.
+    updated_email = f"updated-{uuid.uuid4().hex[:12]}@example.test"
+    api("/account/email/change-request", "POST", {
+        "email":updated_email, "currentPassword":password,
+    }, token=access)
+    change_code = mailbox_code("Verificar nuevo correo")
+    api("/account/email/confirm","POST",{"code":change_code},token=access)
+    api("/auth/me",token=access,expected=401)
+    email=updated_email
+    access=api("/auth/login","POST",{
+        "email":email,"password":password,"clientLabel":"after-email-change",
+    })["accessToken"]
+
+    # Invitation expiry is a PostgreSQL timestamp, and invite can be revoked.
+    invited=f"guardian-invited-{uuid.uuid4().hex[:12]}@example.test"
+    api("/account/invitations","POST",{"email":invited,"role":"VIEWER"},
+        token=access,expected=201)
+    invitations=api("/account/invitations",token=access)
+    own_invite=next(i for i in invitations if i["email"]==invited)
+    assert own_invite["status"]=="PENDING"
+    api(f"/account/invitations/{own_invite['id']}","DELETE",token=access)
+    invitations=api("/account/invitations",token=access)
+    assert next(i for i in invitations if i["id"]==own_invite["id"])["status"]=="REVOKED"
+
     api("/account", expected=401)
 
 
