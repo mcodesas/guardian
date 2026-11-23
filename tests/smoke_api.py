@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime, timezone
 import secrets
 import time
 import urllib.error
@@ -100,6 +101,18 @@ def main() -> None:
     assert owner["email"] == email
     assert owner["verified"] is True
 
+    # New profile and account-session management endpoints.
+    account = api("/account", token=access)
+    assert account["email"] == email
+    assert api("/account", "PATCH", {"name":"QA Owner Updated","phone":"+573001112233"},
+               token=access)["name"] == "QA Owner Updated"
+    active_sessions = api("/account/sessions",token=access)
+    assert len(active_sessions) == 1 and active_sessions[0]["current"]
+    assert isinstance(api("/account/members",token=access),list)
+    assert isinstance(api("/workspaces",token=access),list)
+    api("/account", expected=401)
+
+
     device = api("/devices", "POST",
         {"name": "Equipo QA", "platform": "WINDOWS"},
         token=access, expected=201)
@@ -112,6 +125,34 @@ def main() -> None:
     policy = api(f"/agent/{device_id}/policy", agent_key=key)
     assert policy["lockOnAway"] is True
     assert policy["allowRemoteApproval"] is True
+
+    # Only the paired agent can send location/failure reports. Data is
+    # encrypted at rest, never available on public API endpoints.
+    observation_id = str(uuid.uuid4())
+    observed_at = datetime.now(timezone.utc).isoformat()
+    payload = {
+        "eventId": observation_id, "eventType":"FAILED_UNLOCK",
+        "occurredAt": observed_at,
+        "latitude":4.60971, "longitude":-74.08175,
+        "accuracyMeters":45.0, "locationSource":"WINDOWS_GEO",
+        "locationObservedAt":observed_at,
+        "photoStatus":"UNAVAILABLE",
+    }
+    api(f"/agent/{device_id}/security-observations", "POST", payload,
+        agent_key="invalid-agent-key", expected=401)
+    reported = api(f"/agent/{device_id}/security-observations", "POST",payload,agent_key=key)
+    assert reported["accepted"] is True and reported["duplicate"] is False
+    repeated = api(f"/agent/{device_id}/security-observations", "POST",payload,agent_key=key)
+    assert repeated["duplicate"] is True
+    location = api(f"/devices/{device_id}/last-location",token=access)
+    assert abs(location["latitude"]-4.60971)<0.0001
+    assert location["type"] == "FAILED_UNLOCK"
+    observations = api(f"/devices/{device_id}/security-observations",token=access)
+    assert len(observations)==1 and observations[0]["id"]==observation_id
+    api(f"/devices/{device_id}/security-observations",expected=401)
+    api(f"/devices/{device_id}/security-observations/{observation_id}/photo",
+        token=access,expected=404)
+
 
     api(f"/agent/{device_id}/events", "POST",
         {"type": "NOT_VERIFIABLE", "reason": "Prueba en CI sin rostro"},
@@ -158,7 +199,8 @@ def main() -> None:
     api("/auth/me", token=access, expected=401)
     print("PASS: health, registration, SMTP OTP, login, bearer auth, devices, "
           "agent, security incident, approval challenge, signed-decision denial, "
-          "password recovery, token rotation and logout")
+          "password recovery, profile editing, sessions, encrypted location events, "
+          "idempotent alerts, token rotation and logout")
 
 
 if __name__ == "__main__":

@@ -142,6 +142,46 @@ class _AuthScreenState extends State<AuthScreen> {
       guardianMessage(context,'Contraseña actualizada. Inicia sesión de nuevo.');
   }
 
+  Future<void> reactivateAccount() async {
+    if(widget.controller.api.serverUrl.isEmpty) {
+      guardianMessage(context,'Configura primero el servidor Guardian');
+      return;
+    }
+    final targetEmail=await showDialog<String>(context:context,builder:(ctx){
+      final field=TextEditingController(text:email.text.trim());
+      return AlertDialog(backgroundColor:GuardianPalette.surface,
+        title:const Text('Reactivar cuenta'),
+        content:TextField(controller:field,
+          decoration:const InputDecoration(labelText:'Correo de la cuenta')),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Cancelar')),
+          ElevatedButton(onPressed:()=>Navigator.pop(ctx,field.text.trim()),
+            child:const Text('Enviar código')),
+        ]);
+    });
+    if(targetEmail==null||targetEmail.isEmpty)return;
+    try {
+      await widget.controller.api.post('/account/reactivate/request',{'email':targetEmail});
+      if(!mounted)return;
+      final codeInput=TextEditingController();
+      final otp=await showDialog<String>(context:context,builder:(ctx)=>AlertDialog(
+        backgroundColor:GuardianPalette.surface,
+        title:const Text('Verificación de reactivación'),
+        content:TextField(controller:codeInput,keyboardType:TextInputType.number,
+          maxLength:6,decoration:const InputDecoration(labelText:'Código recibido')),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(ctx),child:const Text('Cancelar')),
+          ElevatedButton(onPressed:()=>Navigator.pop(ctx,codeInput.text.trim()),
+            child:const Text('Reactivar')),
+        ]));
+      codeInput.dispose();
+      if(otp==null)return;
+      await widget.controller.api.post('/account/reactivate/confirm',
+        {'email':targetEmail,'code':otp});
+      if(mounted) guardianMessage(context,'Cuenta reactivada. Vuelve a iniciar sesión.');
+    } catch(e) {if(mounted)guardianMessage(context,'No fue posible reactivar: $e');}
+  }
+
   String? validateEmail(String? input) {
     if(!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(input?.trim() ?? '')) {
       return 'Introduce un correo válido';
@@ -228,6 +268,9 @@ class _AuthScreenState extends State<AuthScreen> {
             Align(alignment:Alignment.centerRight,
               child:TextButton(onPressed:recoverPassword,
                 child:const Text('¿Olvidaste tu contraseña?'))),
+          if(mode==AuthMode.login)
+            Align(alignment:Alignment.centerRight,child:TextButton(
+              onPressed:reactivateAccount,child:const Text('Reactivar cuenta'))),
           if(mode==AuthMode.verify)
             Align(alignment:Alignment.centerRight,
               child:TextButton(onPressed:()async{

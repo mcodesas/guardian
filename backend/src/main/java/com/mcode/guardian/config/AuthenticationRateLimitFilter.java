@@ -85,7 +85,9 @@ public class AuthenticationRateLimitFilter extends OncePerRequestFilter {
             case "/api/v1/auth/verify", "/api/v1/auth/reset" -> 10;
             case "/api/v1/auth/resend-verification",
                  "/api/v1/auth/request-reset",
+                 "/api/v1/account/reactivate/request",
                  "/api/v1/mobile/credentials/challenge" -> 5;
+            case "/api/v1/account/reactivate/confirm" -> 10;
             default -> 0;
         };
     }

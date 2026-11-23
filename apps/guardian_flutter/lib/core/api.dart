@@ -52,6 +52,23 @@ class GuardianApi {
     await storage.delete(key:'guardian.refresh.token');
   }
 
+  Future<List<int>> getBytes(String path, {bool retry=true}) async {
+    if(serverUrl.isEmpty) throw StateError('Configura el servidor Guardian');
+    try {
+      final response=await _dio.get<List<int>>('$serverUrl/api/v1$path',
+        options:Options(responseType:ResponseType.bytes,headers:{
+          if(accessToken!=null) 'Authorization':'Bearer $accessToken',
+        }));
+      return response.data ?? <int>[];
+    } on DioException catch(ex) {
+      if(retry && ex.response?.statusCode==401 && refreshToken!=null) {
+        await _refreshAccess();
+        return getBytes(path,retry:false);
+      }
+      throw ApiFailure.fromDio(ex);
+    }
+  }
+
   Future<dynamic> get(String path) => _call('GET', path, null);
   Future<dynamic> post(String path, [Object? body]) => _call('POST', path, body);
   Future<dynamic> patch(String path, Object body) => _call('PATCH', path, body);
