@@ -141,7 +141,7 @@ public class AccountMembershipService {
               (owner_account_id,invited_by_account_id,email,role,token_hash,expires_at)
             VALUES (?,?,?,?,?,?)
             """,principal.accountId(),principal.accountId(),email,permission,
-                auth.digestForCredential(token),Instant.now().plus(48,ChronoUnit.HOURS));
+                auth.digestForCredential(token),java.sql.Timestamp.from(Instant.now().plus(48,ChronoUnit.HOURS)));
         SimpleMailMessage message=new SimpleMailMessage();
         message.setFrom(from);
         message.setTo(email);

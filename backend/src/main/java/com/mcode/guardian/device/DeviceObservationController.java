@@ -162,8 +162,10 @@ public class DeviceObservationController {
                  encrypted_photo, photo_mime)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (id) DO NOTHING
-            """, request.eventId(), deviceId, request.eventType(), request.occurredAt(),
-                encryptedLocation, request.locationSource(), request.locationObservedAt(),
+            """, request.eventId(), deviceId, request.eventType(),
+                java.sql.Timestamp.from(request.occurredAt()),
+                encryptedLocation, request.locationSource(),
+                request.locationObservedAt() == null ? null : java.sql.Timestamp.from(request.locationObservedAt()),
                 request.photoStatus(), encrypted, encrypted == null ? null : "image/jpeg");
         if (inserted == 0) {
             Integer owned = jdbc.queryForObject("""
