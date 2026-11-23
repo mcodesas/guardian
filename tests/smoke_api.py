@@ -22,8 +22,8 @@ MAIL = "http://127.0.0.1:18025"
 
 def http(url: str, method: str = "GET", data: dict | None = None,
          token: str | None = None, agent_key: str | None = None,
-         expected: int = 200) -> dict:
-    headers = {"Accept": "application/json"}
+         expected: int = 200, accept: str = "application/json") -> dict:
+    headers = {"Accept": accept}
     if data is not None:
         headers["Content-Type"] = "application/json"
     if token:
@@ -51,8 +51,8 @@ def http(url: str, method: str = "GET", data: dict | None = None,
 
 def api(endpoint: str, method: str = "GET", data: dict | None = None,
         token: str | None = None, agent_key: str | None = None,
-        expected: int = 200) -> dict:
-    return http(BASE + "/api/v1" + endpoint, method, data, token, agent_key, expected)
+        expected: int = 200, accept: str = "application/json") -> dict:
+    return http(BASE + "/api/v1" + endpoint, method, data, token, agent_key, expected, accept)
 
 
 def mailbox_code(subject_contains: str) -> str:
@@ -176,7 +176,7 @@ def main() -> None:
     assert len(observations)==1 and observations[0]["id"]==observation_id
     api(f"/devices/{device_id}/security-observations",expected=401)
     api(f"/devices/{device_id}/security-observations/{observation_id}/photo",
-        token=access,expected=404)
+        token=access,expected=404,accept="image/jpeg")
 
 
     api(f"/agent/{device_id}/events", "POST",
