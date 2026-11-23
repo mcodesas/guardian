@@ -61,3 +61,19 @@ Guía completa: [Flutter](apps/guardian_flutter/README.md). Prototipo de agente:
 ## Plan de desarrollo por pasos
 
 Guardian está organizado en [4 fases y 20 pasos](docs/PLAN_20_PASOS.md). La [auditoría inicial](docs/QA_BASELINE_20261108.md) registra hallazgos y el estado real de las pruebas antes de continuar con el backend.
+
+
+## Cuentas, ubicación y acceso bloqueado (rama de desarrollo)
+
+El módulo de administración de cuentas permite actualizar el perfil, cambiar el correo con OTP,
+cambiar contraseña, consultar y revocar sesiones, invitar usuarios, administrar roles y solicitar
+la desactivación, reactivación o eliminación de la cuenta con controles de verificación.
+
+El agente de Windows incorpora un monitor **opcional y visible** para detectar eventos
+auditados de fallos de desbloqueo y recopilar ubicación cuando el propietario habilita los permisos.
+La evidencia opcional se cifra en el servidor y queda protegida por autorización del propietario.
+Windows puede impedir tomar una fotografía desde la pantalla bloqueada. La ubicación mostrada
+incluye siempre la hora y la precisión; nunca se garantiza una posición actual si no hay sensor.
+
+Consulta [la guía de integración](docs/INTEGRACION_CUENTAS_Y_UBICACION.md).
+El código requiere compilación, pruebas en Windows y validación de uso antes de producción.

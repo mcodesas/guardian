@@ -36,7 +36,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Windows agent Python syntax
-        run: python -m py_compile agent/windows/guardian_agent.py agent/windows/guardian_policy.py
+        run: python -m py_compile agent/windows/guardian_agent.py agent/windows/guardian_policy.py agent/windows/guardian_locked_security.py
       - name: Native safety policy tests
         run: python -m unittest discover -s agent/windows -p 'test_*.py' -v
 
@@ -82,6 +82,7 @@ jobs:
         run: |
           echo "GUARDIAN_DB_PASSWORD=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
           echo "GUARDIAN_AUTH_PEPPER=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "GUARDIAN_EVIDENCE_KEY_BASE64=$(openssl rand -base64 32 | tr -d '\n')" >> "$GITHUB_ENV"
           echo "GUARDIAN_API_PORT=18083" >> "$GITHUB_ENV"
           echo "GUARDIAN_DB_PORT=15433" >> "$GITHUB_ENV"
       - name: Docker Compose config
