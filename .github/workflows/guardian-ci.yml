@@ -106,7 +106,7 @@ jobs:
         run: python tests/smoke_api.py
       - name: Diagnostic logs on failure
         if: failure()
-        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --tail=150
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --tail=700 --timestamps
       - name: Stop ephemeral stack
         if: always()
         run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down --volumes --remove-orphans
