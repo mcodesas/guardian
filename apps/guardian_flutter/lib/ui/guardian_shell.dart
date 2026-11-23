@@ -5,6 +5,9 @@ import 'package:guardian_app/core/guardian_controller.dart';
 import 'package:guardian_app/core/guardian_theme.dart';
 import 'package:guardian_app/core/mobile_approvals.dart';
 import 'package:guardian_app/ui/guardian_components.dart';
+import 'package:guardian_app/ui/account_management_page.dart';
+import 'package:guardian_app/ui/security_observations_page.dart';
+import 'package:guardian_app/ui/shared_workspaces_page.dart';
 
 class GuardianShell extends StatefulWidget {
   const GuardianShell({super.key,required this.controller});
@@ -302,6 +305,11 @@ class _GuardianShellState extends State<GuardianShell> {
   }
 
   Widget _devices()=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    OutlinedButton.icon(onPressed:()=>Navigator.push(context,MaterialPageRoute<void>(
+      builder:(_)=>SecurityObservationsPage(controller:widget.controller))),
+      icon:const Icon(Icons.location_on_outlined),
+      label:const Text('Ver ubicación e intentos de acceso')),
+    const SizedBox(height:16),
     SectionTitle('Computadores registrados',
       subtitle:'Cada equipo debe vincularse con un agente nativo',
       trailing:ElevatedButton.icon(onPressed:busy?null:_addDevice,
@@ -728,6 +736,16 @@ class _GuardianShellState extends State<GuardianShell> {
   }
 
   Widget _profile()=>Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    OutlinedButton.icon(onPressed:()=>Navigator.push(context,MaterialPageRoute<void>(
+      builder:(_)=>AccountManagementPage(controller:widget.controller))),
+      icon:const Icon(Icons.manage_accounts_outlined),
+      label:const Text('Administrar cuenta y usuarios')),
+    const SizedBox(height:12),
+    OutlinedButton.icon(onPressed:()=>Navigator.push(context,MaterialPageRoute<void>(
+      builder:(_)=>SharedWorkspacesPage(controller:widget.controller))),
+      icon:const Icon(Icons.groups_outlined),
+      label:const Text('Espacios compartidos')),
+    const SizedBox(height:16),
     GlassCard(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
       const Row(children:[
         GuardianLogo(size:48),SizedBox(width:12),

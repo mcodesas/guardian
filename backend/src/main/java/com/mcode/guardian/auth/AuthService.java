@@ -240,7 +240,7 @@ public class AuthService {
         String email = normalizedEmail(emailRaw);
         List<Map<String,Object>> found = jdbc.queryForList("""
             SELECT id, password_hash, email_verified, display_name, failed_login_attempts, locked_until
-            FROM guardian_account WHERE email = ? FOR UPDATE
+            FROM guardian_account WHERE email = ? AND disabled_at IS NULL FOR UPDATE
             """, email);
         if (found.isEmpty()) throw unauthenticated();
         Map<String,Object> row = found.get(0);
@@ -281,9 +281,11 @@ public class AuthService {
     @Transactional
     public Map<String,Object> refresh(String oldRefresh) {
         List<Map<String,Object>> found = jdbc.queryForList("""
-            SELECT id, guardian_account_id FROM auth_session
-            WHERE refresh_token_hash = ? AND revoked_at IS NULL AND refresh_expires_at > now()
-            FOR UPDATE
+            SELECT s.id, s.guardian_account_id FROM auth_session s
+            JOIN guardian_account a ON a.id = s.guardian_account_id
+            WHERE s.refresh_token_hash = ? AND s.revoked_at IS NULL
+              AND s.refresh_expires_at > now() AND a.disabled_at IS NULL
+            FOR UPDATE OF s
             """, digest(oldRefresh));
         if (found.isEmpty()) throw unauthenticated();
         UUID sessionId = (UUID) found.get(0).get("id");
@@ -306,7 +308,7 @@ public class AuthService {
             SELECT s.id session_id, a.id account_id, a.email
             FROM auth_session s JOIN guardian_account a ON a.id = s.guardian_account_id
             WHERE s.access_token_hash = ? AND s.access_expires_at > now()
-              AND s.revoked_at IS NULL AND a.email_verified = true
+              AND s.revoked_at IS NULL AND a.email_verified = true AND a.disabled_at IS NULL
             """, (rs, i) -> new AuthPrincipal(
                 rs.getObject("account_id", UUID.class),
                 rs.getObject("session_id", UUID.class),
