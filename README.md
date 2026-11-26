@@ -77,3 +77,8 @@ incluye siempre la hora y la precisión; nunca se garantiza una posición actual
 
 Consulta [la guía de integración](docs/INTEGRACION_CUENTAS_Y_UBICACION.md).
 El código requiere compilación, pruebas en Windows y validación de uso antes de producción.
+
+
+## Inicio automático Windows
+
+El script [manage-startup.ps1](agent/windows/manage-startup.ps1) registra tareas de inicio por usuario, independientes de Flutter. Requiere consentimiento y enrolamiento previo; el modo inicial es observación. Consulta [la guía del agente](agent/windows/README.md). No constituye todavía un instalador comercial ni un servicio anterior al inicio de sesión.

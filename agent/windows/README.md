@@ -57,3 +57,22 @@ En monitor aparece una ventana visible con estado y vídeo. La tecla `Q` detiene
 - Las fotografías se guardan cifradas con DPAPI y se purgan al superar siete días o 100 archivos.
 - Una cámara que deja de producir fotogramas genera un evento y, en modo experimental de protección, solicita bloqueo.
 - Liveness sigue pendiente. Una foto o video que supere la comparación facial podría engañar al modelo: esto no es biometría certificada.
+
+
+## Inicio automático independiente de Flutter (Windows)
+
+El script manage-startup.ps1 registra tareas visibles del Programador de tareas para el usuario actual. Se ejecutan al iniciar sesión, sin depender del icono de bandeja ni de Flutter. No se ocultan procesos ni se eluden indicadores o permisos de Windows. Primero instala dependencias y completa setup y enroll. Usa rutas estables para el repositorio, Python y modelos. Ejemplo:
+
+```powershell
+.\manage-startup.ps1 -Action Enable -OwnerConsent -PythonExe 'C:\Guardian\venv\Scripts\python.exe' -Detector 'C:\Guardian\models\yunet.onnx' -Recognizer 'C:\Guardian\models\sface.onnx'
+.\manage-startup.ps1 -Action Status
+.\manage-startup.ps1 -Action Stop
+.\manage-startup.ps1 -Action Start
+.\manage-startup.ps1 -Action Disable
+```
+
+Stop pausa hasta Start; Disable elimina las tareas. Plan permite inspeccionar definiciones sin instalarlas. Se configuran tres intentos de reinicio por fallo, con intervalo de un minuto, sin límite de duración de la tarea. El modo predeterminado es observación; el bloqueo experimental exige -Mode protect -ConfirmExperimentalProtection en un equipo de prueba.
+
+El monitor de sesión bloqueada es opcional: agrega -LockedLocation y/o -LockedPhoto únicamente con autorización explícita y dependencias y permisos instalados. No se elevan privilegios. La cámara puede estar ocupada o bloqueada por Windows. Las tareas no garantizan captura durante el bloqueo.
+
+Pendiente: instalador integrado, servicio previo al inicio de sesión y pruebas físicas tras reinicio, cierre de Flutter y fallos reales. El estado Running no certifica que la protección facial esté operativa.
