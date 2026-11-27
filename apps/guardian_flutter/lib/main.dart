@@ -3,6 +3,7 @@ import 'package:guardian_app/core/guardian_controller.dart';
 import 'package:guardian_app/core/guardian_theme.dart';
 import 'package:guardian_app/ui/auth_screen.dart';
 import 'package:guardian_app/ui/guardian_shell.dart';
+import 'package:guardian_app/ui/guardian_components.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,7 +33,21 @@ class _GuardianAppState extends State<GuardianApp> {
         theme:guardianTheme(),
         debugShowCheckedModeBanner:false,
         home:!controller.initialized
-          ? const Scaffold(body:Center(child:CircularProgressIndicator()))
+          ? const Scaffold(body:SafeArea(child:Center(child:Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GuardianLogo(size: 156),
+                SizedBox(height: 20),
+                Text('Guardian', style: TextStyle(fontSize: 30,
+                    fontWeight: FontWeight.w800, color: GuardianPalette.white)),
+                SizedBox(height: 8),
+                Text('Seguridad inteligente para tus dispositivos',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: GuardianPalette.muted)),
+                SizedBox(height: 30),
+                CircularProgressIndicator(),
+              ],
+            ))))
           : controller.authenticated
             ? GuardianShell(controller:controller)
             : AuthScreen(controller:controller),

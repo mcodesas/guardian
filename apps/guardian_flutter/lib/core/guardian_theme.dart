@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
 abstract final class GuardianPalette {
-  static const bg = Color(0xFF08111D);
-  static const surface = Color(0xFF101F2E);
-  static const elevated = Color(0xFF182B3D);
-  static const line = Color(0xFF294055);
-  static const teal = Color(0xFF59E5CE);
-  static const blue = Color(0xFF70A9FF);
+  static const bg = Color(0xFF06101F);
+  static const surface = Color(0xFF0C1B2E);
+  static const elevated = Color(0xFF12253A);
+  static const line = Color(0xFF29445F);
+  static const teal = Color(0xFF55D5FF);
+  static const blue = Color(0xFF69A6FF);
   static const amber = Color(0xFFFFBD69);
   static const red = Color(0xFFFF777E);
   static const muted = Color(0xFF96ABBE);

@@ -68,6 +68,14 @@ jobs:
       - name: Create official platform projects
         working-directory: apps/guardian_flutter
         run: flutter create --project-name guardian_app --org com.mcode.guardian --platforms=android,ios,windows,macos,linux .
+      - name: Generate and apply official icons
+        run: |
+          python -m pip install Pillow
+          python scripts/generate_brand_icons.py --apply
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guardian-brand-icons
+          path: branding/generated
       - name: Flutter resolve
         working-directory: apps/guardian_flutter
         run: flutter pub get

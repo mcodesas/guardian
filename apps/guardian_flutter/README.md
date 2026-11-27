@@ -38,3 +38,7 @@ Si falta Firebase, Guardian sigue funcionando con **bandeja de alertas dentro de
 - Las claves de aprobación Ed25519 quedan cifradas mediante almacenamiento seguro del dispositivo, pero no están garantizadas como no exportables/hardware-backed.
 - Para seguridad comercial de alta confianza se requiere firma mediante Android Keystore o Secure Enclave y controles anti-fraude adicionales.
 - Todavía no existen pantalla de captura facial, motor ONNX ni agente de bloqueo del sistema operativo.
+
+## Iconos oficiales
+
+Después de crear los runners nativos, desde la raíz del repositorio ejecuta `python -m pip install Pillow` y `python scripts/generate_brand_icons.py --apply`. El CI hace este paso antes de compilar. Los iconos de tienda quedan en `branding/generated`. El cliente Flutter usa el logo aprobado como recurso empaquetado.

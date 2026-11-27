@@ -7,7 +7,11 @@ void main() {
   testWidgets('GuardianLogo uses branded shield and renders', (tester) async {
     await tester.pumpWidget(MaterialApp(theme:guardianTheme(),
       home:const Scaffold(body:GuardianLogo())));
-    expect(find.byIcon(Icons.shield_rounded),findsOneWidget);
+    final image = tester.widget<Image>(find.byType(Image));
+    expect((image.image as AssetImage).assetName,
+      'assets/branding/guardian-logo.webp');
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
   test('Guardian brand palette is dark and high contrast', () {
     expect(GuardianPalette.bg.computeLuminance(),lessThan(.1));

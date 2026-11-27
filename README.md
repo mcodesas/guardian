@@ -82,3 +82,7 @@ El código requiere compilación, pruebas en Windows y validación de uso antes 
 ## Inicio automático Windows
 
 El script [manage-startup.ps1](agent/windows/manage-startup.ps1) registra tareas de inicio por usuario, independientes de Flutter. Requiere consentimiento y enrolamiento previo; el modo inicial es observación. Consulta [la guía del agente](agent/windows/README.md). No constituye todavía un instalador comercial ni un servicio anterior al inicio de sesión.
+
+## Identidad visual y sitio público
+
+Consulta [branding](branding/README.md), [web pública](apps/guardian_web/README.md) y el generador de iconos. La identidad se integra en el cliente Flutter. La página estática no se despliega automáticamente a producción sin configurar su dominio y alojamiento.

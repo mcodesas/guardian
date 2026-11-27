@@ -5,17 +5,15 @@ class GuardianLogo extends StatelessWidget {
   const GuardianLogo({super.key, this.size=54});
   final double size;
   @override
-  Widget build(BuildContext context) => Container(
-    width:size, height:size,
-    decoration:BoxDecoration(
-      gradient:const LinearGradient(
-        colors:[GuardianPalette.teal,GuardianPalette.blue],
-        begin:Alignment.topLeft,end:Alignment.bottomRight),
-      borderRadius:BorderRadius.circular(size*.30),
-      boxShadow:[BoxShadow(color:GuardianPalette.teal.withValues(alpha:.16),
-        blurRadius:22,spreadRadius:1)],
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(size * .20),
+    child: Image.asset(
+      'assets/branding/guardian-logo.webp',
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      semanticLabel: 'Guardian',
     ),
-    child:Icon(Icons.shield_rounded,color:GuardianPalette.bg,size:size*.6),
   );
 }
 
