@@ -1,5 +1,0 @@
-# Additional module for Windows location. The existing guardian_agent.py requires
-# opencv-contrib-python, requests, pywin32 and numpy (agent/windows/requirements.txt).
-# Install this file only on supported Windows Python 3.11+.
-winrt-Windows.Devices.Geolocation>=3.2.1
-winrt-Windows.Foundation>=3.2.1
